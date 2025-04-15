@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWASP ZAP - Dashboard de Sécurité</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/dark-mode.css">
+    
+    <!-- JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <img src="../assets/img/logo.png" alt="Logo Dashboard Sécurité">
+                <h1>Dashboard de Sécurité</h1>
+            </div>
+            <ul class="navbar-nav">
+                <li><a href="index.html" data-page="dashboard">Dashboard</a></li>
+                <li><a href="trivy.html" data-page="trivy">Trivy</a></li>
+                <li><a href="sonarqube.html" data-page="sonarqube">SonarQube</a></li>
+                <li><a href="zap.html" class="active" data-page="zap">OWASP ZAP</a></li>
+                <li><a href="selenium.html" data-page="selenium">Selenium</a></li>
+                <li><a href="settings.html" data-page="settings">Paramètres</a></li>
+                <li><button id="theme-toggle" class="btn btn-sm btn-secondary"><i class="fas fa-moon"></i></button></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <!-- Contenu principal -->
+    <div class="container">
+        <div class="page-header">
+            <h2 class="page-title">OWASP ZAP - Scanner de vulnérabilités Web</h2>
+            <div class="filters-container">
+                <div class="filter-group">
+                    <label for="zap-severity-filter">Sévérité:</label>
+                    <select id="zap-severity-filter" class="form-control">
+                        <option value="">Toutes</option>
+                        <option value="high">Élevée</option>
+                        <option value="medium">Moyenne</option>
+                        <option value="low">Faible</option>
+                        <option value="info">Informationnelle</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="zap-status-filter">Statut:</label>
+                    <select id="zap-status-filter" class="form-control">
