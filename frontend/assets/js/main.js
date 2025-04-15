@@ -117,7 +117,7 @@ function initGlobalControls() {
     if (themeToggle) {
         themeToggle.addEventListener('click', function() {
             darkMode = !darkMode;
-            localStorage.setItem('darkMode', darkMode);
+            localStorage.setItem('darkMode', darkMode ? 'true' : 'false');
             updateTheme();
         });
     }
@@ -944,6 +944,269 @@ function updateScanTrendsChart(trends) {
             }
         }
     });
+}
+
+/**
+ * Chargement des derniers scans pour toutes les catégories
+ */
+function loadLatestScans() {
+    fetch(`${API_BASE_URL}/scans?limit=10`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                updateLatestScansTable(data.data);
+            } else {
+                console.error('Erreur lors du chargement des derniers scans:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la requête API:', error);
+        });
+}
+
+/**
+ * Mise à jour du tableau des derniers scans
+ */
+function updateLatestScansTable(scans) {
+    const tableBody = document.querySelector('#latest-scans-table tbody');
+    
+    if (!tableBody) {
+        console.error('Table body des derniers scans non trouvé');
+        return;
+    }
+    
+    // Vider la table
+    tableBody.innerHTML = '';
+    
+    // Remplir avec les nouvelles données
+    scans.forEach(scan => {
+        const row = document.createElement('tr');
+        
+        // Définir la classe de statut
+        row.classList.add(`status-${scan.scan_status}`);
+        
+        row.innerHTML = `
+            <td>${formatDate(scan.scan_date)}</td>
+            <td>${formatToolName(scan.tool_name)}</td>
+            <td>${scan.target_name}</td>
+            <td><span class="badge status-${scan.scan_status}">${formatScanStatus(scan.scan_status)}</span></td>
+            <td>${scan.total_issues}</td>
+            <td>${scan.high_severity_count}</td>
+            <td>${scan.medium_severity_count}</td>
+            <td>${scan.low_severity_count}</td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="viewScanDetails(${scan.id})">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
+
+/**
+ * Affichage des détails d'un scan
+ */
+function viewScanDetails(id) {
+    fetch(`${API_BASE_URL}/scans/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showScanModal(data.data);
+            } else {
+                console.error('Erreur lors du chargement des détails du scan:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la requête API:', error);
+        });
+}
+
+/**
+ * Affichage d'une modal avec les détails d'un scan
+ */
+function showScanModal(scan) {
+    // Créer ou récupérer la modal
+    let modal = document.getElementById('scan-modal');
+    
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'scan-modal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+    
+    // Contenu de la modal
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Détails du scan : ${scan.target_name}</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="scan-details">
+                    <p><strong>Date:</strong> ${formatDate(scan.scan_date)}</p>
+                    <p><strong>Outil:</strong> ${formatToolName(scan.tool_name)}</p>
+                    <p><strong>Statut:</strong> <span class="badge status-${scan.scan_status}">${formatScanStatus(scan.scan_status)}</span></p>
+                    <p><strong>Total des problèmes:</strong> ${scan.total_issues}</p>
+                    <p><strong>Problèmes critiques/élevés:</strong> ${scan.high_severity_count}</p>
+                    <p><strong>Problèmes moyens:</strong> ${scan.medium_severity_count}</p>
+                    <p><strong>Problèmes faibles:</strong> ${scan.low_severity_count}</p>
+                    <p><strong>ID d'exécution:</strong> ${scan.pipeline_run_id || 'N/A'}</p>
+                </div>
+                
+                <div class="mt-2">
+                    <button class="btn btn-primary" onclick="showScanVulnerabilities(${scan.id})">Voir les vulnérabilités</button>
+                    <button class="btn btn-info" onclick="exportScanReport(${scan.id})">Exporter le rapport</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Afficher la modal
+    modal.style.display = 'block';
+    
+    // Gestion de la fermeture
+    const closeBtn = modal.querySelector('.close-modal');
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    };
+    
+    // Fermer si on clique en dehors de la modal
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+}
+
+/**
+ * Affiche les vulnérabilités liées à un scan
+ */
+function showScanVulnerabilities(scanId) {
+    fetch(`${API_BASE_URL}/vulnerabilities?scan_id=${scanId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Fermer la modal actuelle
+                const scanModal = document.getElementById('scan-modal');
+                if (scanModal) {
+                    scanModal.style.display = 'none';
+                }
+                
+                // Créer une nouvelle modal pour les vulnérabilités
+                let modal = document.getElementById('vulnerabilities-list-modal');
+                
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'vulnerabilities-list-modal';
+                    modal.className = 'modal';
+                    document.body.appendChild(modal);
+                }
+                
+                // Générer le HTML pour la liste des vulnérabilités
+                let vulnerabilitiesHTML = '';
+                data.data.forEach(vuln => {
+                    vulnerabilitiesHTML += `
+                        <tr class="severity-${vuln.severity}">
+                            <td>${vuln.title}</td>
+                            <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
+                            <td>${vuln.location || 'N/A'}</td>
+                            <td>${vuln.category || 'N/A'}</td>
+                            <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                // Contenu de la modal
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Vulnérabilités du scan</h2>
+                            <span class="close-modal">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Titre</th>
+                                            <th>Sévérité</th>
+                                            <th>Emplacement</th>
+                                            <th>Catégorie</th>
+                                            <th>Statut</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${vulnerabilitiesHTML}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Afficher la modal
+                modal.style.display = 'block';
+                
+                // Gestion de la fermeture
+                const closeBtn = modal.querySelector('.close-modal');
+                closeBtn.onclick = function() {
+                    modal.style.display = 'none';
+                };
+                
+                // Fermer si on clique en dehors de la modal
+                window.onclick = function(event) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                };
+            } else {
+                console.error('Erreur lors du chargement des vulnérabilités:', data.message);
+                showNotification('Erreur lors du chargement des vulnérabilités', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la requête API:', error);
+            showNotification('Erreur de connexion au serveur', 'error');
+        });
+}
+
+/**
+ * Exporte le rapport d'un scan
+ */
+function exportScanReport(scanId) {
+    fetch(`${API_BASE_URL}/scans/${scanId}/export`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Échec de l\'exportation');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Créer un lien pour le téléchargement
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `rapport-scan-${scanId}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('Rapport exporté avec succès', 'success');
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'exportation du rapport:', error);
+            showNotification('Erreur lors de l\'exportation du rapport', 'error');
+        });
 }
 
 /**
