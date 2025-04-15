@@ -1,0 +1,130 @@
+/**
+ * Styles spécifiques pour le mode sombre du dashboard de sécurité
+ */
+
+/* Variables pour le mode sombre */
+:root {
+    --dark-bg: #121212;
+    --dark-card: #1e1e1e;
+    --dark-text: #e0e0e0;
+    --dark-text-secondary: #aaaaaa;
+    --dark-border: #333333;
+    --dark-hover: rgba(255, 255, 255, 0.05);
+    
+    --primary-dark: #1976d2;
+    --secondary-dark: #455a64;
+    --success-dark: #388e3c;
+    --warning-dark: #f57c00;
+    --danger-dark: #d32f2f;
+    --info-dark: #0288d1;
+}
+
+/* Modifications supplémentaires pour le mode sombre */
+body.dark-mode {
+    background-color: var(--dark-bg);
+    color: var(--dark-text);
+}
+
+/* Cartes et conteneurs */
+body.dark-mode .card,
+body.dark-mode .navbar,
+body.dark-mode .form-control,
+body.dark-mode .modal-content,
+body.dark-mode .notification {
+    background-color: var(--dark-card);
+    border-color: var(--dark-border);
+}
+
+body.dark-mode .card-header,
+body.dark-mode .card-footer,
+body.dark-mode .modal-header,
+body.dark-mode .modal-footer {
+    border-color: var(--dark-border);
+}
+
+/* Textes */
+body.dark-mode .stat-card .stat-label,
+body.dark-mode .text-muted {
+    color: var(--dark-text-secondary);
+}
+
+/* Survols */
+body.dark-mode .navbar-nav a:hover,
+body.dark-mode .table tbody tr:hover {
+    background-color: var(--dark-hover);
+}
+
+/* Formulaires */
+body.dark-mode .form-control {
+    color: var(--dark-text);
+    border-color: var(--dark-border);
+}
+
+body.dark-mode .form-control:focus {
+    border-color: var(--primary-dark);
+}
+
+/* Tableaux */
+body.dark-mode .table thead th {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .table th,
+body.dark-mode .table td {
+    border-color: var(--dark-border);
+}
+
+/* Graphiques */
+body.dark-mode .chart-container canvas {
+    filter: brightness(0.9);
+}
+
+/* Description et remédiation */
+body.dark-mode .description-box,
+body.dark-mode .remediation-box {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Ajustements pour les boutons en mode sombre */
+body.dark-mode .btn-primary {
+    background-color: var(--primary-dark);
+}
+
+body.dark-mode .btn-secondary {
+    background-color: var(--secondary-dark);
+}
+
+body.dark-mode .btn-success {
+    background-color: var(--success-dark);
+}
+
+body.dark-mode .btn-warning {
+    background-color: var(--warning-dark);
+}
+
+body.dark-mode .btn-danger {
+    background-color: var(--danger-dark);
+}
+
+body.dark-mode .btn-info {
+    background-color: var(--info-dark);
+}
+
+/* Scrollbars personnalisées pour le mode sombre */
+body.dark-mode::-webkit-scrollbar {
+    width: 12px;
+}
+
+body.dark-mode::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+}
+
+body.dark-mode::-webkit-scrollbar-thumb {
+    background-color: #555555;
+    border-radius: 6px;
+    border: 3px solid var(--dark-bg);
+}
+
+body.dark-mode::-webkit-scrollbar-thumb:hover {
+    background-color: #777777;
+}
