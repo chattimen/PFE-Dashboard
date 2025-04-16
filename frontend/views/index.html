@@ -29,7 +29,6 @@
                 <li><a href="#" data-page="sonarqube">SonarQube</a></li>
                 <li><a href="#" data-page="zap">OWASP ZAP</a></li>
                 <li><a href="#" data-page="selenium">Selenium</a></li>
-                <li><a href="#" data-page="settings">Paramètres</a></li>
                 <li><button id="theme-toggle" class="btn btn-sm btn-secondary"><i class="fas fa-moon"></i></button></li>
             </ul>
         </div>
@@ -316,77 +315,6 @@
             <!-- À compléter selon les besoins -->
         </div>
         
-        <!-- Page Paramètres -->
-        <div id="settings-page" class="page-content">
-            <div class="page-header">
-                <h2 class="page-title">Paramètres</h2>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">Configuration générale</div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label class="form-label" for="theme-selector">Thème</label>
-                        <select id="theme-selector" class="form-control">
-                            <option value="light">Clair</option>
-                            <option value="dark">Sombre</option>
-                            <option value="auto">Automatique (selon système)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label" for="refresh-interval">Intervalle de rafraîchissement (secondes)</label>
-                        <input type="number" id="refresh-interval" class="form-control" min="0" value="300">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card mt-2">
-                <div class="card-header">Configuration des outils</div>
-                <div class="card-body">
-                    <!-- Trivy -->
-                    <div class="form-group">
-                        <h3>Trivy</h3>
-                        <div class="d-flex align-center gap-1 mb-1">
-                            <input type="checkbox" id="trivy-enabled" checked>
-                            <label for="trivy-enabled">Activer Trivy</label>
-                        </div>
-                    </div>
-                    
-                    <!-- SonarQube -->
-                    <div class="form-group">
-                        <h3>SonarQube</h3>
-                        <div class="d-flex align-center gap-1 mb-1">
-                            <input type="checkbox" id="sonarqube-enabled" checked>
-                            <label for="sonarqube-enabled">Activer SonarQube</label>
-                        </div>
-                    </div>
-                    
-                    <!-- OWASP ZAP -->
-                    <div class="form-group">
-                        <h3>OWASP ZAP</h3>
-                        <div class="d-flex align-center gap-1 mb-1">
-                            <input type="checkbox" id="zap-enabled" checked>
-                            <label for="zap-enabled">Activer OWASP ZAP</label>
-                        </div>
-                    </div>
-                    
-                    <!-- Selenium -->
-                    <div class="form-group">
-                        <h3>Selenium</h3>
-                        <div class="d-flex align-center gap-1 mb-1">
-                            <input type="checkbox" id="selenium-enabled" checked>
-                            <label for="selenium-enabled">Activer Selenium</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <button id="save-settings" class="btn btn-primary">Enregistrer</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <!-- Conteneur pour les notifications -->
     <div id="notification-container"></div>
     <div id="footer-placeholder"></div>
@@ -400,11 +328,7 @@
       <footer class="footer">
         <div class="footer-container">
             <p>&copy; 2025 Dashboard de Sécurité. Tous droits réservés.</p>
-            <div class="footer-links">
-                <a href="#">Mentions légales</a> | 
-                <a href="#">Politique de confidentialité</a> | 
-                <a href="#">Contact</a>
-            </div>
+
         </div>
     </footer>
     
