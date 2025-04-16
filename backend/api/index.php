@@ -13,4 +13,5 @@ if (strpos($_SERVER['REQUEST_URI'], '/api/') === 0) {
 
 // Sinon, rediriger vers l'interface frontend
 header('Location: frontend/views/index.html');
+
 exit;
