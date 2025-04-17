@@ -6,9 +6,9 @@
 // Paramètres de connexion à la base de données
 define('DB_HOST', 'localhost');  // Hôte de la base de données
 define('DB_PORT', '5432');       // Port PostgreSQL (par défaut : 5432)
-define('DB_NAME', 'security_dashboard');  // Nom de la base de données
-define('DB_USER', 'postgres');   // Nom d'utilisateur PostgreSQL
-define('DB_PASS', 'password');   // Mot de passe PostgreSQL (à modifier)
+define('DB_NAME', 'sonarqube');  // Nom de la base de données
+define('DB_USER', 'sonartest');   // Nom d'utilisateur PostgreSQL
+define('DB_PASS', 'sonartest');   // Mot de passe PostgreSQL (à modifier)
 
 // NOTE: Dans un environnement de production, ces informations devraient être
 // stockées dans des variables d'environnement pour une meilleure sécurité
