@@ -1,17 +1,31 @@
 <?php
-/**
- * Point d'entrée principal du Dashboard de Sécurité
- * Ce fichier redirige vers l'interface frontend ou gère les requêtes API
- */
+header('Content-Type: application/json');
 
-// Détecter si la requête est destinée à l'API
-if (strpos($_SERVER['REQUEST_URI'], '/api/') === 0) {
-    // Rediriger vers le backend API
-    require_once __DIR__ . '/backend/api/index.php';
-    exit;
+// Debugging information
+echo "Request URI: " . $_SERVER['REQUEST_URI'] . "<br>"; // Debug: Print request URI
+
+// Get clean path
+$request = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$request = str_replace('/api', '', $request); // Remove /api prefix
+
+// Set the base directory for the API
+$baseDir = __DIR__; // This will point to the current directory of the 'api' folder
+
+switch ($request) {
+    case '/vulnerabilities':
+        echo "Vulnerabilities endpoint reached.<br>"; // Debug: Check if we hit this endpoint
+        require $baseDir . '/vulnerabilities.php'; // Absolute path
+        break;
+    case '/metrics':
+        echo "Metrics endpoint reached.<br>"; // Debug: Check if we hit this endpoint
+        require $baseDir . '/metrics.php'; // Absolute path
+        break;
+    case '/scans':
+        echo "Scans endpoint reached.<br>"; // Debug: Check if we hit this endpoint
+        require $baseDir . '/scans.php'; // Absolute path
+        break;
+    default:
+        http_response_code(404);
+        echo json_encode(["error" => "Endpoint not found"]);
+        break;
 }
-
-// Sinon, rediriger vers l'interface frontend
-header('Location: frontend/views/index.html');
-
-exit;
