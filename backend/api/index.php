@@ -1,28 +1,20 @@
 <?php
 header('Content-Type: application/json');
 
-// Debugging information
-echo "Request URI: " . $_SERVER['REQUEST_URI'] . "<br>"; // Debug: Print request URI
-
-// Get clean path
 $request = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$request = str_replace('/api', '', $request); // Remove /api prefix
+$request = str_replace('/api', '', $request);
 
-// Set the base directory for the API
-$baseDir = __DIR__; // This will point to the current directory of the 'api' folder
+$baseDir = __DIR__;
 
 switch ($request) {
     case '/vulnerabilities':
-        echo "Vulnerabilities endpoint reached.<br>"; // Debug: Check if we hit this endpoint
-        require $baseDir . '/vulnerabilities.php'; // Absolute path
+        require $baseDir . '/vulnerabilities.php';
         break;
     case '/metrics':
-        echo "Metrics endpoint reached.<br>"; // Debug: Check if we hit this endpoint
-        require $baseDir . '/metrics.php'; // Absolute path
+        require $baseDir . '/metrics.php';
         break;
     case '/scans':
-        echo "Scans endpoint reached.<br>"; // Debug: Check if we hit this endpoint
-        require $baseDir . '/scans.php'; // Absolute path
+        require $baseDir . '/scans.php';
         break;
     default:
         http_response_code(404);
