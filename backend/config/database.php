@@ -4,7 +4,7 @@
  */
 
 // Paramètres de connexion à la base de données
-define('DB_HOST', 'localhost');  // Hôte de la base de données
+define('DB_HOST', '192.168.231.128');  // Hôte de la base de données
 define('DB_PORT', '5432');       // Port PostgreSQL (par défaut : 5432)
 define('DB_NAME', 'sonarqube');  // Nom de la base de données
 define('DB_USER', 'sonartest');   // Nom d'utilisateur PostgreSQL
