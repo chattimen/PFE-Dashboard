@@ -157,7 +157,7 @@
             </div>
             <div class="card-body">
                 <div class="table-container">
-                    <table class="table" id="sonar-issues-table">
+                    <table class="table" id="sonarqube-vulnerabilities-table">
                         <thead>
                             <tr>
                                 <th>Titre</th>
@@ -169,7 +169,7 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="sonarqube-vulnerabilities-table-body">
                             <!-- Rempli dynamiquement par JavaScript -->
                         </tbody>
                     </table>
@@ -188,7 +188,7 @@
             <div class="card-header">Historique des analyses</div>
             <div class="card-body">
                 <div class="table-container">
-                    <table class="table" id="sonar-history-table">
+                    <table class="table" id="sonarqube-history-table">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -201,7 +201,7 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="sonarqube-history-table-body">
                             <!-- Rempli dynamiquement par JavaScript -->
                         </tbody>
                     </table>
@@ -267,7 +267,7 @@
             
             // Export CSV
             document.getElementById('export-sonar-csv').addEventListener('click', function() {
-                exportTableToCSV('sonar-issues-table', 'sonar-issues.csv');
+                exportTableToCSV('sonarqube-vulnerabilities-table', 'sonar-issues.csv');
             });
         });
         

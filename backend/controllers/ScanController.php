@@ -17,31 +17,34 @@ class ScanController {
     /**
      * Récupère tous les scans avec filtrage et pagination
      */
-    public function getAll() {
-        // Récupérer les paramètres de la requête
-        $filters = [];
-        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 50;
-        $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
-        
-        // Filtres
-        if (isset($_GET['tool_name'])) {
-            $filters['tool_name'] = $_GET['tool_name'];
-        }
-        
-        if (isset($_GET['scan_status'])) {
-            $filters['scan_status'] = $_GET['scan_status'];
-        }
-        
-        if (isset($_GET['target_name'])) {
-            $filters['target_name'] = $_GET['target_name'];
-        }
-        
-        if (isset($_GET['date_from'])) {
-            $filters['date_from'] = $_GET['date_from'];
-        }
-        
-        if (isset($_GET['date_to'])) {
-            $filters['date_to'] = $_GET['date_to'];
+    public function getScans($filters = [], $limit = 50, $offset = 0) {
+        // Si appelé via API
+        if (empty($filters) && isset($_GET)) {
+            // Récupérer les paramètres de la requête
+            $filters = [];
+            $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 50;
+            $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
+            
+            // Filtres
+            if (isset($_GET['tool_name'])) {
+                $filters['tool_name'] = $_GET['tool_name'];
+            }
+            
+            if (isset($_GET['scan_status'])) {
+                $filters['scan_status'] = $_GET['scan_status'];
+            }
+            
+            if (isset($_GET['target_name'])) {
+                $filters['target_name'] = $_GET['target_name'];
+            }
+            
+            if (isset($_GET['date_from'])) {
+                $filters['date_from'] = $_GET['date_from'];
+            }
+            
+            if (isset($_GET['date_to'])) {
+                $filters['date_to'] = $_GET['date_to'];
+            }
         }
         
         try {
@@ -50,127 +53,189 @@ class ScanController {
             // Compter le total pour la pagination
             $totalCount = count($scans);
             
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'success',
-                'data' => $scans,
-                'total' => $totalCount,
-                'limit' => $limit,
-                'offset' => $offset
-            ]);
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $scans,
+                    'total' => $totalCount,
+                    'limit' => $limit,
+                    'offset' => $offset
+                ]);
+            } else {
+                return $scans;
+            }
         } catch (Exception $e) {
-            $this->sendErrorResponse($e->getMessage());
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
     /**
      * Récupère un scan par son ID
      */
-    public function getOne($id) {
+    public function getScanDetails($id) {
         try {
             $scan = $this->scanModel->getScanById($id);
             
             if (!$scan) {
-                $this->sendErrorResponse("Scan non trouvé", 404);
-                return;
+                if (isset($_SERVER['REQUEST_METHOD'])) {
+                    $this->sendErrorResponse("Scan non trouvé", 404);
+                    return;
+                } else {
+                    return null;
+                }
             }
             
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'success',
-                'data' => $scan
-            ]);
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $scan
+                ]);
+            } else {
+                return $scan;
+            }
         } catch (Exception $e) {
-            $this->sendErrorResponse($e->getMessage());
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
     /**
      * Ajoute un nouveau scan
      */
-    public function add() {
-        // Vérifier que la requête est en POST
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->sendErrorResponse("Méthode non autorisée", 405);
-            return;
-        }
-        
-        // Récupérer les données du corps de la requête
-        $data = json_decode(file_get_contents('php://input'), true);
-        
-        if (!$data) {
-            $this->sendErrorResponse("Données invalides");
-            return;
+    public function addScan($data = null) {
+        // Si appelé via API
+        if ($data === null) {
+            // Vérifier que la requête est en POST
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendErrorResponse("Méthode non autorisée", 405);
+                return;
+            }
+            
+            // Récupérer les données du corps de la requête
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$data) {
+                $this->sendErrorResponse("Données invalides");
+                return;
+            }
         }
         
         // Valider les données requises
         if (empty($data['tool_name']) || empty($data['target_name']) || empty($data['scan_status'])) {
-            $this->sendErrorResponse("Données manquantes: tool_name, target_name et scan_status sont requis");
-            return;
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse("Données manquantes: tool_name, target_name et scan_status sont requis");
+                return;
+            } else {
+                throw new Exception("Données manquantes: tool_name, target_name et scan_status sont requis");
+            }
         }
         
         try {
             $id = $this->scanModel->addScan($data);
             
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'Scan ajouté avec succès',
-                'id' => $id
-            ]);
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Scan ajouté avec succès',
+                    'id' => $id
+                ]);
+            } else {
+                return $id;
+            }
         } catch (Exception $e) {
-            $this->sendErrorResponse($e->getMessage());
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
     /**
      * Supprime un scan
      */
-    public function delete($id) {
+    public function deleteScan($id) {
         try {
             $scan = $this->scanModel->getScanById($id);
             
             if (!$scan) {
-                $this->sendErrorResponse("Scan non trouvé", 404);
-                return;
+                if (isset($_SERVER['REQUEST_METHOD'])) {
+                    $this->sendErrorResponse("Scan non trouvé", 404);
+                    return;
+                } else {
+                    return false;
+                }
             }
             
-            $this->scanModel->deleteScan($id);
+            $success = $this->scanModel->deleteScan($id);
             
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'Scan supprimé avec succès'
-            ]);
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Scan supprimé avec succès'
+                ]);
+            } else {
+                return $success;
+            }
         } catch (Exception $e) {
-            $this->sendErrorResponse($e->getMessage());
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
     /**
      * Récupère les statistiques des scans
      */
-    public function getStats() {
+    public function getScanStats($filters = []) {
         $days = isset($_GET['days']) ? intval($_GET['days']) : 30;
+        
+        if (is_array($filters) && isset($filters['days'])) {
+            $days = intval($filters['days']);
+        }
         
         try {
             $stats = $this->scanModel->getScanStats($days);
             
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'success',
-                'data' => $stats
-            ]);
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $stats
+                ]);
+            } else {
+                return $stats;
+            }
         } catch (Exception $e) {
-            $this->sendErrorResponse($e->getMessage());
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
     /**
      * Récupère les tendances des scans
      */
-    public function getTrends() {
-        $days = isset($_GET['days']) ? intval($_GET['days']) : 30;
+    public function getScanTrends($days = 30) {
+        // Si appelé via API
+        if (isset($_GET['days'])) {
+            $days = intval($_GET['days']);
+        }
         
         // Validation du paramètre days
         if ($days < 1) {
@@ -182,13 +247,21 @@ class ScanController {
         try {
             $trends = $this->scanModel->getScanTrends($days);
             
-            header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'success',
-                'data' => $trends
-            ]);
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $trends
+                ]);
+            } else {
+                return $trends;
+            }
         } catch (Exception $e) {
-            $this->sendErrorResponse($e->getMessage());
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $this->sendErrorResponse($e->getMessage());
+            } else {
+                throw $e;
+            }
         }
     }
     
@@ -202,5 +275,47 @@ class ScanController {
             'status' => 'error',
             'message' => $message
         ]);
+    }
+    
+    /**
+     * Alias pour getScans (compatibilité)
+     */
+    public function getAll() {
+        return $this->getScans();
+    }
+    
+    /**
+     * Alias pour getScanDetails (compatibilité)
+     */
+    public function getOne($id) {
+        return $this->getScanDetails($id);
+    }
+    
+    /**
+     * Alias pour getScanStats (compatibilité)
+     */
+    public function getStats() {
+        return $this->getScanStats();
+    }
+    
+    /**
+     * Alias pour getScanTrends (compatibilité)
+     */
+    public function getTrends() {
+        return $this->getScanTrends();
+    }
+    
+    /**
+     * Alias pour addScan (compatibilité)
+     */
+    public function add() {
+        return $this->addScan();
+    }
+    
+    /**
+     * Alias pour deleteScan (compatibilité)
+     */
+    public function delete($id) {
+        return $this->deleteScan($id);
     }
 }
