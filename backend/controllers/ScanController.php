@@ -48,7 +48,7 @@ class ScanController {
         }
         
         try {
-            $scans = $this->scanModel->getAllScans($filters, $limit, $offset);
+            $scans = $this->scanModel->getAllScans($filters, $limit, $offset) ?? [];
             
             // Compter le total pour la pagination
             $totalCount = count($scans);
