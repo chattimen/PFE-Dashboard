@@ -41,7 +41,7 @@ if (strpos($uri, '/assets/') === 0) {
 
 // Serve index.html from /frontend for root or unknown route
 if ($uri === '/' || $uri === '') {
-    require_once __DIR__ . '/frontend/index.html';
+    require_once __DIR__ . '/frontend/views/index.html';
     exit;
 }
 
