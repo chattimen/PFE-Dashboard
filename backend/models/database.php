@@ -62,7 +62,12 @@ class Database {
      * Récupère toutes les lignes d'une requête
      */
     public function fetchAll($sql, $params = []) {
-        return $this->query($sql, $params)->fetchAll();
+        try {
+            return $this->query($sql, $params)->fetchAll();
+        } catch (PDOException $e) {
+            error_log("Erreur fetchAll: " . $e->getMessage());
+            throw $e; // Optional: to propagate it
+        }
     }
     
     /**

@@ -1,41 +1,30 @@
 <?php
-header('Content-Type: application/json');
+header("Content-Type: application/json");
 
-// Get clean path
+// Clean path
 $request = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$request = str_replace('/api', '', $request); // Remove /api prefix
+$request = str_replace('/api', '', $request); // remove prefix
 
-$baseDir = __DIR__;
+$baseDir = __DIR__; // backend/api
 
-// Routing
-switch ($request) {
-    case '/vulnerabilities':
-        require $baseDir . '/vulnerabilities.php';
+switch (true) {
+    case preg_match('#^/vulnerabilities#', $request):
+        require_once $baseDir . '/vulnerabilities.php';
         break;
-    case '/metrics':
-        require $baseDir . '/metrics.php';
+    case preg_match('#^/scans#', $request):
+        require_once $baseDir . '/scans.php';
         break;
-    case '/scans':
-        require $baseDir . '/scans.php';
+    case preg_match('#^/metrics#', $request):
+        require_once $baseDir . '/metrics.php';
         break;
-
-    case (preg_match('#^/vulnerabilities/stats$#', $request) ? true : false):
-        require $baseDir . '/vulnerabilities_stats.php';
+    case '/scans/stats':
+        require_once __DIR__ . '/scan_stats.php';
         break;
-    case (preg_match('#^/scans/stats$#', $request) ? true : false):
-        require $baseDir . '/scans_stats.php';
-        break;
-    case (preg_match('#^/vulnerabilities/trends$#', $request) ? true : false):
-        require $baseDir . '/vulnerabilities_trends.php';
-        break;
-    case (preg_match('#^/scans/trends$#', $request) ? true : false):
-        require $baseDir . '/scans_trends.php';
-        break;
-    case (preg_match('#^/vulnerabilities/\d+$#', $request) ? true : false):
-        require $baseDir . '/vulnerabilities_view.php';
+    case '/scans/trends':
+        require_once __DIR__ . '/scan_trends.php';
         break;
     default:
         http_response_code(404);
-        echo json_encode(["error" => "Endpoint not found"]);
+        echo json_encode(["status" => "error", "message" => "Endpoint not found"]);
         break;
 }
