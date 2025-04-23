@@ -757,25 +757,30 @@ body.dark-mode .notification {
     align-items: center;
     gap: 0.5rem;
 }
-.download-link {
-    text-align: right;
-    margin-top: 5px;
-    margin-bottom: 15px;
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
-.download-link a {
+.report-link {
     color: #007bff;
+    cursor: pointer;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    float: right;
+    margin-left: auto;
+    font-weight: 500;
 }
 
-.download-link a:hover {
+.report-link:hover {
     text-decoration: underline;
     color: #0056b3;
 }
 
-.download-link i {
+.report-link i {
     font-size: 14px;
 }

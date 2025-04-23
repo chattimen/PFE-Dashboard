@@ -1247,12 +1247,145 @@ function showNotification(message, type = 'info') {
         }, 500);
     }, 5000);
 }
-// Ajouter un gestionnaire d'événement pour le lien de téléchargement
+
+/**
+ * Génère et télécharge un rapport général du dashboard
+ */
+function downloadDashboardReport() {
+    const date = new Date().toLocaleDateString();
+    const title = 'Rapport de sécurité global - ' + date;
+    
+    // Récupérer les statistiques globales
+    const vulnsCount = document.getElementById('total-vulns')?.textContent || '0';
+    const criticalCount = document.getElementById('critical-vulns')?.textContent || '0';
+    const highCount = document.getElementById('high-vulns')?.textContent || '0';
+    const mediumCount = document.getElementById('medium-vulns')?.textContent || '0';
+    const lowCount = document.getElementById('low-vulns')?.textContent || '0';
+    
+    // Créer un contenu HTML pour le rapport
+    let reportContent = `
+        <html>
+        <head>
+            <title>${title}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .stats { margin: 20px 0; display: flex; flex-wrap: wrap; }
+                .stat-card { 
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 10px;
+                    width: 200px;
+                    text-align: center;
+                }
+                .stat-value { font-size: 24px; font-weight: bold; margin: 10px 0; }
+                .stat-label { color: #666; }
+                .section { margin: 30px 0; }
+                h2 { color: #444; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+                table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .severity-critical { color: #d81b60; font-weight: bold; }
+                .severity-high { color: #e53935; font-weight: bold; }
+                .severity-medium { color: #fb8c00; }
+                .severity-low { color: #4caf50; }
+                .footer { margin-top: 50px; font-size: 12px; color: #999; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <h1>${title}</h1>
+            
+            <div class="section">
+                <h2>Résumé des vulnérabilités</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-label">Total</div>
+                        <div class="stat-value">${vulnsCount}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Critiques</div>
+                        <div class="stat-value severity-critical">${criticalCount}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Élevées</div>
+                        <div class="stat-value severity-high">${highCount}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Moyennes</div>
+                        <div class="stat-value severity-medium">${mediumCount}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Faibles</div>
+                        <div class="stat-value severity-low">${lowCount}</div>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // Capturer les graphiques si présents
+    const charts = document.querySelectorAll('canvas');
+    if (charts.length > 0) {
+        reportContent += `<div class="section"><h2>Graphiques</h2>`;
+        reportContent += `<p>Les graphiques ne sont pas inclus dans cette version du rapport. Veuillez consulter le dashboard pour les visualisations.</p>`;
+        reportContent += `</div>`;
+    }
+    
+    // Ajouter les dernières vulnérabilités si disponibles
+    const vulnsTable = document.querySelector('table[id="recent-vulnerabilities-table"]');
+    if (vulnsTable) {
+        reportContent += `<div class="section"><h2>Dernières vulnérabilités détectées</h2>`;
+        
+        // Cloner le tableau sans la colonne d'actions
+        const clonedTable = vulnsTable.cloneNode(true);
+        const actionColumns = clonedTable.querySelectorAll('th:last-child, td:last-child');
+        actionColumns.forEach(col => col.remove());
+        
+        reportContent += clonedTable.outerHTML;
+        reportContent += `</div>`;
+    }
+    
+    // Ajouter les derniers scans si disponibles
+    const scansTable = document.querySelector('table[id="recent-scans-table"]');
+    if (scansTable) {
+        reportContent += `<div class="section"><h2>Derniers scans effectués</h2>`;
+        
+        // Cloner le tableau sans la colonne d'actions
+        const clonedTable = scansTable.cloneNode(true);
+        const actionColumns = clonedTable.querySelectorAll('th:last-child, td:last-child');
+        actionColumns.forEach(col => col.remove());
+        
+        reportContent += clonedTable.outerHTML;
+        reportContent += `</div>`;
+    }
+    
+    reportContent += `
+            <div class="footer">
+                <p>Rapport généré le ${new Date().toLocaleString()} via le Dashboard de Sécurité</p>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    // Créer un Blob avec le contenu HTML
+    const blob = new Blob([reportContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    // Créer un lien de téléchargement et le cliquer
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `security-dashboard-report-${date.replace(/\//g, '-')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Ajouter un gestionnaire d'événement pour le bouton de téléchargement
 document.addEventListener('DOMContentLoaded', function() {
-    const downloadLink = document.getElementById('download-report');
-    if (downloadLink) {
-        downloadLink.addEventListener('click', function(e) {
-            e.preventDefault(); // Empêcher le comportement par défaut du lien
+    const downloadButton = document.getElementById('download-report');
+    if (downloadButton) {
+        downloadButton.addEventListener('click', function() {
             downloadDashboardReport();
         });
     }
