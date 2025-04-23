@@ -148,11 +148,12 @@ class ScanModel {
                 FROM 
                     scans
                 WHERE 
-                    scan_date >= (CURRENT_DATE - INTERVAL '? days')
+                    scan_date >= (CURRENT_DATE - INTERVAL '{$days} days')
                 GROUP BY 
                     tool_name";
         
-        return $this->db->fetchAll($sql, [$days]);
+        return $this->db->fetchAll($sql);
+
     }
     
     /**
@@ -161,7 +162,7 @@ class ScanModel {
     public function getScanTrends($days = 30) {
         $sql = "WITH dates AS (
                     SELECT generate_series(
-                        CURRENT_DATE - INTERVAL '? days',
+                        CURRENT_DATE - INTERVAL '{$days} days',
                         CURRENT_DATE,
                         '1 day'::interval
                     ) AS date
@@ -181,6 +182,7 @@ class ScanModel {
                 ORDER BY 
                     dates.date ASC";
         
-        return $this->db->fetchAll($sql, [$days]);
+        return $this->db->fetchAll($sql);
+
     }
 }
