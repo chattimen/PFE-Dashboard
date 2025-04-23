@@ -757,3 +757,25 @@ body.dark-mode .notification {
     align-items: center;
     gap: 0.5rem;
 }
+.download-link {
+    text-align: right;
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+.download-link a {
+    color: #007bff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.download-link a:hover {
+    text-decoration: underline;
+    color: #0056b3;
+}
+
+.download-link i {
+    font-size: 14px;
+}

@@ -1247,3 +1247,13 @@ function showNotification(message, type = 'info') {
         }, 500);
     }, 5000);
 }
+// Ajouter un gestionnaire d'événement pour le lien de téléchargement
+document.addEventListener('DOMContentLoaded', function() {
+    const downloadLink = document.getElementById('download-report');
+    if (downloadLink) {
+        downloadLink.addEventListener('click', function(e) {
+            e.preventDefault(); // Empêcher le comportement par défaut du lien
+            downloadDashboardReport();
+        });
+    }
+});
