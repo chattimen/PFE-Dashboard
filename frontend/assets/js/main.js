@@ -1811,6 +1811,101 @@ function fetchScanHistory(toolName, limit = 10) {
             console.warn("Élément #zap-vulnerabilities-table-body non trouvé");
             return;
         }
+        // Correction pour la fonction initZapPage
+function initZapPage() {
+    // Vérifier si l'ID est bien zap-vulnerabilities-table-body plutôt que owasp_zap-vulnerabilities-table
+    console.log("Éléments trouvés pour ZAP:", {
+        vulnTableBody: document.getElementById('zap-vulnerabilities-table-body'),
+        historyTable: document.getElementById('zap-history-table')
+    });
+    
+    // Charger les vulnérabilités de ZAP en ciblant le bon ID
+    const vulnTableBody = document.getElementById('zap-vulnerabilities-table-body');
+    if (vulnTableBody) {
+        console.log("Table body ZAP trouvé, chargement des vulnérabilités");
+        fetchVulnerabilities('zap'); // Utiliser 'zap' au lieu de 'owasp_zap'
+    } else {
+        console.warn("Table body zap-vulnerabilities-table-body non trouvé");
+    }
+    
+    // Charger l'historique des scans ZAP
+    const historyTableBody = document.querySelector('#zap-history-table tbody');
+    if (historyTableBody) {
+        console.log("History table body ZAP trouvé, chargement de l'historique");
+        fetchScanHistory('zap'); // Utiliser 'zap' au lieu de 'owasp_zap'
+    } else {
+        console.warn("Table body pour l'historique ZAP non trouvé");
+    }
+    
+    // Initialiser la partie spécifique à ZAP si la fonction existe
+    if (typeof loadZapData === 'function') {
+        loadZapData();
+    }
+}
+
+// Modification de loadZapData pour éviter les chargements multiples
+let zapDataLoaded = false;
+
+function loadZapData() {
+    // Éviter les chargements multiples
+    if (zapDataLoaded) {
+        console.log("Données ZAP déjà chargées, abandon");
+        return;
+    }
+    
+    zapDataLoaded = true;
+    
+    try {
+        // Le reste de la fonction reste inchangé...
+        const zapData = {
+            // ... vos données de démonstration
+        };
+        
+        // Récupérer le JSON depuis une balise script si disponible, sinon utiliser les données de démonstration
+        const jsonElement = document.getElementById('zap-data');
+        if (jsonElement && jsonElement.textContent) {
+            const parsedData = JSON.parse(jsonElement.textContent);
+            processZapData(parsedData);
+        } else {
+            // Utiliser les données de démonstration
+            processZapData(zapData);
+        }
+    } catch (e) {
+        console.error("Erreur lors du traitement des données ZAP:", e);
+        showNotification("Erreur lors du chargement des données ZAP", "error");
+        zapDataLoaded = false; // Réinitialiser le drapeau en cas d'erreur
+    }
+}
+
+// Ajout d'une fonction de débogage pour vérifier les éléments DOM
+function checkDomElements() {
+    // Vérifier les éléments clés mentionnés dans les erreurs
+    const elements = {
+        'zap-page': document.getElementById('zap-page'),
+        'zap-vulnerabilities-table': document.getElementById('zap-vulnerabilities-table'),
+        'zap-vulnerabilities-table-body': document.getElementById('zap-vulnerabilities-table-body'),
+        'zap-history-table': document.getElementById('zap-history-table'),
+        'zap-severity-chart': document.getElementById('zap-severity-chart'),
+        'zap-category-chart': document.getElementById('zap-category-chart')
+    };
+    
+    console.log("Vérification des éléments DOM importants:", elements);
+    
+    // Vérifier les attributs de tbody dans les tableaux
+    const zapVulnTable = document.getElementById('zap-vulnerabilities-table');
+    if (zapVulnTable) {
+        const tbody = zapVulnTable.querySelector('tbody');
+        console.log("ZAP Vuln Table tbody:", tbody, "ID:", tbody ? tbody.id : "N/A");
+    }
+    
+    return elements;
+}
+
+// Ajouter cet appel au chargement du document pour diagnostiquer les problèmes
+document.addEventListener('DOMContentLoaded', function() {
+    // Exécuter après un court délai pour s'assurer que tout est chargé
+    setTimeout(checkDomElements, 500);
+});
         
         // Vider la table
         tableBody.innerHTML = '';
