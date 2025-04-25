@@ -485,12 +485,12 @@ function initSonarQubePage() {
 function initZapPage() {
     // Charger les vulnérabilités de ZAP si la table existe
     if (document.querySelector('#zap-vulnerabilities-table tbody')) {
-        fetchVulnerabilities('owasp_zap');
+        fetchVulnerabilities('zap');
     }
     
     // Charger l'historique des scans ZAP si la table existe
     if (document.querySelector('#zap-history-table tbody')) {
-        fetchScanHistory('owasp_zap');
+        fetchScanHistory('zap');
     }
     
     // Initialiser la partie spécifique à ZAP si la fonction existe
@@ -513,7 +513,10 @@ function initSeleniumPage() {
  * Récupération des vulnérabilités par outil
  */
 function fetchVulnerabilities(toolName, limit = 50, offset = 0) {
-    fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`)
+    // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
+    const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
+    
+    fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${apiToolName}&limit=${limit}&offset=${offset}`)
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
@@ -792,13 +795,15 @@ function updateVulnerabilityStatus(id, newStatus) {
  * Récupération de l'historique des scans par outil
  */
 function fetchScanHistory(toolName, limit = 10) {
+    // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
+    const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
+    
     // Assurez-vous que API_BASE_URL est correctement défini
-    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
+    fetch(`${API_BASE_URL}/scans?tool_name=${apiToolName}&limit=${limit}`)
         .then(response => {
             // Vérifier si la réponse HTTP est OK (statut 200-299)
             if (!response.ok) {
                 // Si non OK, rejeter la promesse pour passer au .catch
-                // On peut aussi lire le corps de la réponse avant de rejeter si l'API fournit des détails d'erreur dans le corps
                  return response.json().then(errorData => {
                      throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${errorData.message || response.statusText}`);
                  }).catch(() => {
@@ -915,14 +920,17 @@ function fetchScanHistory(toolName, limit = 10) {
             const toolName = stat.tool_name?.toLowerCase() || '';
             if (!toolName) return;
             
+            // Convertir owasp_zap en zap pour la sélection des éléments DOM
+            const domToolName = toolName === 'owasp_zap' ? 'zap' : toolName;
+            
             // Mettre à jour le nombre total de scans
-            const scanCountElement = document.getElementById(`${toolName}-scan-count`);
+            const scanCountElement = document.getElementById(`${domToolName}-scan-count`);
             if (scanCountElement) {
                 scanCountElement.textContent = stat.total_scans;
             }
             
             // Mettre à jour le taux de succès
-            const successRateElement = document.getElementById(`${toolName}-success-rate`);
+            const successRateElement = document.getElementById(`${domToolName}-success-rate`);
             if (successRateElement && stat.total_scans > 0) {
                 const successRate = (stat.success_count / stat.total_scans * 100).toFixed(1);
                 successRateElement.textContent = `${successRate}%`;
@@ -1509,7 +1517,17 @@ function fetchScanHistory(toolName, limit = 10) {
         }
     });
     
+    let zapDataLoaded = false;
+    
     function loadZapData() {
+        // Éviter les chargements multiples
+        if (zapDataLoaded) {
+            console.log("Données ZAP déjà chargées, abandon");
+            return;
+        }
+        
+        zapDataLoaded = true;
+        
         try {
             // Dans un environnement réel, ces données seraient récupérées via AJAX
             // Pour l'exemple, nous utilisons des données de démonstration
@@ -1535,7 +1553,7 @@ function fetchScanHistory(toolName, limit = 10) {
                                 "desc": "Web Browser XSS Protection is not enabled, or is disabled by the configuration of the 'X-XSS-Protection' HTTP response header on the web server",
                                 "instances": [
                                     {
-                                        "uri": "http://192.168.231.128:8080/login",
+                                       "uri": "http://192.168.231.128:8080/login",
                                         "method": "GET",
                                         "param": "",
                                         "attack": "",
@@ -1618,6 +1636,7 @@ function fetchScanHistory(toolName, limit = 10) {
         } catch (e) {
             console.error("Erreur lors du traitement des données ZAP:", e);
             showNotification("Erreur lors du chargement des données ZAP", "error");
+            zapDataLoaded = false; // Réinitialiser le drapeau en cas d'erreur
         }
     }
     
@@ -1698,9 +1717,9 @@ function fetchScanHistory(toolName, limit = 10) {
             const riskCode = parseInt(alert.riskcode);
             
             if (riskCode === 3) severityCounts.critical++;
-            else if (riskCode === 2) severityCounts.medium++;
-            else if (riskCode === 1) severityCounts.low++;
-            else if (riskCode === 0) severityCounts.info++;
+            else if (riskCode === 2) severityCounts.high++;
+            else if (riskCode === 1) severityCounts.medium++;
+            else if (riskCode === 0) severityCounts.low++;
         });
         
         // Mise à jour des compteurs s'ils existent
@@ -1714,210 +1733,116 @@ function fetchScanHistory(toolName, limit = 10) {
         updateElement('zap-medium-count', severityCounts.medium);
         updateElement('zap-low-count', severityCounts.low + severityCounts.info);
     }
+    
     let zapSeverityChart = null;
-let zapCategoryChart = null;
-
-function renderVulnerabilityCharts(alerts) {
-    // Vérifier si les éléments canvas existent
-    const severityChart = document.getElementById('zap-severity-chart');
-    const categoryChart = document.getElementById('zap-category-chart');
-
-    // Détruire les anciens graphiques s'ils existent
-    if (zapSeverityChart) {
-        zapSeverityChart.destroy();
-    }
-
-    if (zapCategoryChart) {
-        zapCategoryChart.destroy();
-    }
-
-    if (!severityChart || !categoryChart) {
-        console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
-        return;
-    }
-
-    // Préparer les données pour les graphiques
-    const severityCounts = [0, 0, 0, 0]; // Critical, High, Medium, Low/Info
-    const categoryCounts = {};
-
-    alerts.forEach(alert => {
-        const riskCode = parseInt(alert.riskcode);
-
-        if (riskCode === 3) severityCounts[0]++;
-        else if (riskCode === 2) severityCounts[1]++;
-        else if (riskCode === 1) severityCounts[2]++;
-        else if (riskCode === 0) severityCounts[3]++;
-
-        // Compter par catégorie (WASC)
-        if (alert.wascid && alert.wascid !== "-1") {
-            const category = `WASC-${alert.wascid}`;
-            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+    let zapCategoryChart = null;
+    
+    function renderVulnerabilityCharts(alerts) {
+        // Vérifier si les éléments canvas existent
+        const severityChart = document.getElementById('zap-severity-chart');
+        const categoryChart = document.getElementById('zap-category-chart');
+    
+        // Détruire les anciens graphiques s'ils existent
+        if (zapSeverityChart) {
+            zapSeverityChart.destroy();
         }
-    });
-
-    try {
-        // === Graphique de distribution par sévérité ===
-        const severityCtx = severityChart.getContext('2d');
-        zapSeverityChart = new Chart(severityCtx, {
-            type: 'pie',
-            data: {
-                labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
-                datasets: [{
-                    data: severityCounts,
-                    backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right'
-                    }
-                }
+    
+        if (zapCategoryChart) {
+            zapCategoryChart.destroy();
+        }
+    
+        if (!severityChart || !categoryChart) {
+            console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
+            return;
+        }
+    
+        // Préparer les données pour les graphiques
+        const severityCounts = [0, 0, 0, 0]; // Critical, High, Medium, Low/Info
+        const categoryCounts = {};
+    
+        alerts.forEach(alert => {
+            const riskCode = parseInt(alert.riskcode);
+    
+            if (riskCode === 3) severityCounts[0]++;
+            else if (riskCode === 2) severityCounts[1]++;
+            else if (riskCode === 1) severityCounts[2]++;
+            else if (riskCode === 0) severityCounts[3]++;
+    
+            // Compter par catégorie (WASC)
+            if (alert.wascid && alert.wascid !== "-1") {
+                const category = `WASC-${alert.wascid}`;
+                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
             }
         });
-
-        // === Graphique de distribution par catégorie ===
-        const categoryLabels = Object.keys(categoryCounts);
-        const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
-
-        const categoryCtx = categoryChart.getContext('2d');
-        zapCategoryChart = new Chart(categoryCtx, {
-            type: 'bar',
-            data: {
-                labels: categoryLabels,
-                datasets: [{
-                    label: 'Nombre de vulnérabilités',
-                    data: categoryData,
-                    backgroundColor: '#4e73df'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+    
+        try {
+            // === Graphique de distribution par sévérité ===
+            const severityCtx = severityChart.getContext('2d');
+            zapSeverityChart = new Chart(severityCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
+                    datasets: [{
+                        data: severityCounts,
+                        backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
                         }
                     }
                 }
-            }
-        });
-
-    } catch (e) {
-        console.error("Erreur lors de la création des graphiques ZAP:", e);
+            });
+    
+            // === Graphique de distribution par catégorie ===
+            const categoryLabels = Object.keys(categoryCounts);
+            const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
+    
+            const categoryCtx = categoryChart.getContext('2d');
+            zapCategoryChart = new Chart(categoryCtx, {
+                type: 'bar',
+                data: {
+                    labels: categoryLabels,
+                    datasets: [{
+                        label: 'Nombre de vulnérabilités',
+                        data: categoryData,
+                        backgroundColor: '#4e73df'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+    
+        } catch (e) {
+            console.error("Erreur lors de la création des graphiques ZAP:", e);
+        }
     }
-}
-
+    
     function populateVulnerabilityTable(alerts) {
         const tableBody = document.getElementById('zap-vulnerabilities-table-body');
         if (!tableBody) {
             console.warn("Élément #zap-vulnerabilities-table-body non trouvé");
             return;
         }
-        // Correction pour la fonction initZapPage
-function initZapPage() {
-    // Vérifier si l'ID est bien zap-vulnerabilities-table-body plutôt que owasp_zap-vulnerabilities-table
-    console.log("Éléments trouvés pour ZAP:", {
-        vulnTableBody: document.getElementById('zap-vulnerabilities-table-body'),
-        historyTable: document.getElementById('zap-history-table')
-    });
-    
-    // Charger les vulnérabilités de ZAP en ciblant le bon ID
-    const vulnTableBody = document.getElementById('zap-vulnerabilities-table-body');
-    if (vulnTableBody) {
-        console.log("Table body ZAP trouvé, chargement des vulnérabilités");
-        fetchVulnerabilities('zap'); // Utiliser 'zap' au lieu de 'owasp_zap'
-    } else {
-        console.warn("Table body zap-vulnerabilities-table-body non trouvé");
-    }
-    
-    // Charger l'historique des scans ZAP
-    const historyTableBody = document.querySelector('#zap-history-table tbody');
-    if (historyTableBody) {
-        console.log("History table body ZAP trouvé, chargement de l'historique");
-        fetchScanHistory('zap'); // Utiliser 'zap' au lieu de 'owasp_zap'
-    } else {
-        console.warn("Table body pour l'historique ZAP non trouvé");
-    }
-    
-    // Initialiser la partie spécifique à ZAP si la fonction existe
-    if (typeof loadZapData === 'function') {
-        loadZapData();
-    }
-}
-
-// Modification de loadZapData pour éviter les chargements multiples
-let zapDataLoaded = false;
-
-function loadZapData() {
-    // Éviter les chargements multiples
-    if (zapDataLoaded) {
-        console.log("Données ZAP déjà chargées, abandon");
-        return;
-    }
-    
-    zapDataLoaded = true;
-    
-    try {
-        // Le reste de la fonction reste inchangé...
-        const zapData = {
-            // ... vos données de démonstration
-        };
-        
-        // Récupérer le JSON depuis une balise script si disponible, sinon utiliser les données de démonstration
-        const jsonElement = document.getElementById('zap-data');
-        if (jsonElement && jsonElement.textContent) {
-            const parsedData = JSON.parse(jsonElement.textContent);
-            processZapData(parsedData);
-        } else {
-            // Utiliser les données de démonstration
-            processZapData(zapData);
-        }
-    } catch (e) {
-        console.error("Erreur lors du traitement des données ZAP:", e);
-        showNotification("Erreur lors du chargement des données ZAP", "error");
-        zapDataLoaded = false; // Réinitialiser le drapeau en cas d'erreur
-    }
-}
-
-// Ajout d'une fonction de débogage pour vérifier les éléments DOM
-function checkDomElements() {
-    // Vérifier les éléments clés mentionnés dans les erreurs
-    const elements = {
-        'zap-page': document.getElementById('zap-page'),
-        'zap-vulnerabilities-table': document.getElementById('zap-vulnerabilities-table'),
-        'zap-vulnerabilities-table-body': document.getElementById('zap-vulnerabilities-table-body'),
-        'zap-history-table': document.getElementById('zap-history-table'),
-        'zap-severity-chart': document.getElementById('zap-severity-chart'),
-        'zap-category-chart': document.getElementById('zap-category-chart')
-    };
-    
-    console.log("Vérification des éléments DOM importants:", elements);
-    
-    // Vérifier les attributs de tbody dans les tableaux
-    const zapVulnTable = document.getElementById('zap-vulnerabilities-table');
-    if (zapVulnTable) {
-        const tbody = zapVulnTable.querySelector('tbody');
-        console.log("ZAP Vuln Table tbody:", tbody, "ID:", tbody ? tbody.id : "N/A");
-    }
-
-    return elements;
-}
-
-// Ajouter cet appel au chargement du document pour diagnostiquer les problèmes
-document.addEventListener('DOMContentLoaded', function() {
-    // Exécuter après un court délai pour s'assurer que tout est chargé
-    setTimeout(checkDomElements, 500);
-});
         
         // Vider la table
         tableBody.innerHTML = '';
@@ -2243,7 +2168,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Populating vulnerability tables
             const tablesToPopulate = [
-                'trivy', 'sonarqube', 'owasp_zap'
+                'trivy', 'sonarqube', 'zap'
             ];
             
             tablesToPopulate.forEach(toolName => {
