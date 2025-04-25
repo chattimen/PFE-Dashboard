@@ -1720,13 +1720,13 @@ function fetchScanHistory(toolName, limit = 10) {
         // Vérifier si les éléments canvas existent
         const severityChart = document.getElementById('zap-severity-chart');
         const categoryChart = document.getElementById('zap-category-chart');
-         // Détruire les anciens graphiques s'ils existent
-    if (zap-severity-chart) {
-        zap-severity-chart.destroy();
+     // Détruire les anciens graphiques s'ils existent
+    if (zapSeverityChart) {
+        zapSeverityChart.destroy();
     }
 
-    if (zap-category-chart) {
-        zap-category-chart.destroy();
+    if (zapCategoryChart) {
+        zapCategoryChart.destroy();
     }
         if (!severityChart || !categoryChart) {
             console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
