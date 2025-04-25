@@ -483,6 +483,9 @@ function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
+    // Forcer le rechargement des données ZAP
+    zapDataLoaded = false;
+    
     // Charger les vulnérabilités de ZAP si la table existe
     if (document.querySelector('#zap-vulnerabilities-table tbody')) {
         fetchVulnerabilities('zap');
@@ -498,7 +501,6 @@ function initZapPage() {
         loadZapData();
     }
 }
-
 /**
  * Initialisation de la page Selenium
  */
@@ -1520,13 +1522,6 @@ function fetchScanHistory(toolName, limit = 10) {
     let zapDataLoaded = false;
     
     function loadZapData() {
-        // Éviter les chargements multiples
-        if (zapDataLoaded) {
-            console.log("Données ZAP déjà chargées, abandon");
-            return;
-        }
-        
-        zapDataLoaded = true;
         
         try {
             // Dans un environnement réel, ces données seraient récupérées via AJAX
@@ -1633,6 +1628,7 @@ function fetchScanHistory(toolName, limit = 10) {
                 // Utiliser les données de démonstration
                 processZapData(zapData);
             }
+            zapDataLoaded = true;
         } catch (e) {
             console.error("Erreur lors du traitement des données ZAP:", e);
             showNotification("Erreur lors du chargement des données ZAP", "error");
