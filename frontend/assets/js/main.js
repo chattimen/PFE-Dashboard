@@ -1719,7 +1719,14 @@ function fetchScanHistory(toolName, limit = 10) {
         // Vérifier si les éléments canvas existent
         const severityChart = document.getElementById('zap-severity-chart');
         const categoryChart = document.getElementById('zap-category-chart');
-        
+         // Détruire les anciens graphiques s'ils existent
+    if (zap-severity-chart) {
+        zap-severity-chart.destroy();
+    }
+
+    if (zap-category-chart) {
+        zap-category-chart.destroy();
+    }
         if (!severityChart || !categoryChart) {
             console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
             return;
@@ -1897,7 +1904,8 @@ function checkDomElements() {
         const tbody = zapVulnTable.querySelector('tbody');
         console.log("ZAP Vuln Table tbody:", tbody, "ID:", tbody ? tbody.id : "N/A");
     }
-    
+
+
     return elements;
 }
 
