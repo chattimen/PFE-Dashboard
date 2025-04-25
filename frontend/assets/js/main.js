@@ -272,9 +272,6 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
         window.vulnerabilityChart.destroy();
     }
     
-    // Déterminer si le mode sombre est activé
-    const darkMode = document.body.classList.contains('dark-mode');
-    
     // Créer le nouveau graphique
     window.vulnerabilityChart = new Chart(ctx, {
         type: 'doughnut',
@@ -283,51 +280,29 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
             datasets: [{
                 data: [critical, high, medium, low],
                 backgroundColor: [
-                    getComputedStyle(document.documentElement).getPropertyValue('--severity-critical').trim(),
-                    getComputedStyle(document.documentElement).getPropertyValue('--severity-high').trim(),
-                    getComputedStyle(document.documentElement).getPropertyValue('--severity-medium').trim(),
-                    getComputedStyle(document.documentElement).getPropertyValue('--severity-low').trim(),
+                    '#d81b60', // Rouge
+                    '#e65100', // Orange
+                    '#ffc107', // Jaune
+                    '#2196f3'  // Bleu
                 ],
-                borderWidth: 1,
-                borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                borderWidth: 1
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // Let CSS control the size
             plugins: {
                 legend: {
-                    position: 'bottom', // Legend at the bottom to maximize chart space
+                    position: 'right',
                     labels: {
-                        font: {
-                            family: "'Roboto', sans-serif",
-                            size: 10, // Further reduced font size for the smaller chart
-                        },
-                        color: darkMode ? getComputedStyle(document.documentElement).getPropertyValue('--dark-text').trim() : getComputedStyle(document.documentElement).getPropertyValue('--light-text').trim(),
-                        padding: 8, // Reduced padding to fit the smaller space
+                        color: darkMode ? '#ffffff' : '#333333'
                     }
                 },
                 title: {
                     display: true,
                     text: 'Distribution des vulnérabilités par sévérité',
-                    font: {
-                        family: "'Roboto', sans-serif",
-                        size: 14, // Further reduced font size for the title
-                    },
-                    color: darkMode ? getComputedStyle(document.documentElement).getPropertyValue('--dark-text').trim() : getComputedStyle(document.documentElement).getPropertyValue('--light-text').trim(),
-                    padding: {
-                        top: 8, // Reduced padding
-                        bottom: 15, // Reduced padding
-                    },
-                },
-            },
-            layout: {
-                padding: {
-                    bottom: 15, // Reduced padding to fit the smaller container
-                    top: 10, // Reduced padding
-                },
-            },
-            cutout: '60%', // Increase the cutout percentage to make the donut chart itself smaller
+                    color: darkMode ? '#ffffff' : '#333333'
+                }
+            }
         }
     });
 }
@@ -1929,7 +1904,6 @@ function checkDomElements() {
         const tbody = zapVulnTable.querySelector('tbody');
         console.log("ZAP Vuln Table tbody:", tbody, "ID:", tbody ? tbody.id : "N/A");
     }
-
 
     return elements;
 }
