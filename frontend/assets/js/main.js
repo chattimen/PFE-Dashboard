@@ -1714,12 +1714,20 @@ function fetchScanHistory(toolName, limit = 10) {
         updateElement('zap-medium-count', severityCounts.medium);
         updateElement('zap-low-count', severityCounts.low + severityCounts.info);
     }
-    
+    let zapSeverityChart = null;
+    let zapCategoryChart = null;
     function renderVulnerabilityCharts(alerts) {
         // Vérifier si les éléments canvas existent
         const severityChart = document.getElementById('zap-severity-chart');
         const categoryChart = document.getElementById('zap-category-chart');
-    
+         // Détruire les anciens graphiques s'ils existent
+    if (zap-severity-chart) {
+        zap-severity-chart.destroy();
+    }
+
+    if (zap-category-chart) {
+        zap-category-chart.destroy();
+    }
         if (!severityChart || !categoryChart) {
             console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
             return;
