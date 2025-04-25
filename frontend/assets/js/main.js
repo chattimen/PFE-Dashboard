@@ -1715,12 +1715,14 @@ function fetchScanHistory(toolName, limit = 10) {
         updateElement('zap-low-count', severityCounts.low + severityCounts.info);
     }
     let zapSeverityChart = null;
-    let zapCategoryChart = null;
-    function renderVulnerabilityCharts(alerts) {
-        // Vérifier si les éléments canvas existent
-        const severityChart = document.getElementById('zap-severity-chart');
-        const categoryChart = document.getElementById('zap-category-chart');
-     // Détruire les anciens graphiques s'ils existent
+let zapCategoryChart = null;
+
+function renderVulnerabilityCharts(alerts) {
+    // Vérifier si les éléments canvas existent
+    const severityChart = document.getElementById('zap-severity-chart');
+    const categoryChart = document.getElementById('zap-category-chart');
+
+    // Détruire les anciens graphiques s'ils existent
     if (zapSeverityChart) {
         zapSeverityChart.destroy();
     }
@@ -1728,91 +1730,93 @@ function fetchScanHistory(toolName, limit = 10) {
     if (zapCategoryChart) {
         zapCategoryChart.destroy();
     }
-        if (!severityChart || !categoryChart) {
-            console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
-            return;
+
+    if (!severityChart || !categoryChart) {
+        console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
+        return;
+    }
+
+    // Préparer les données pour les graphiques
+    const severityCounts = [0, 0, 0, 0]; // Critical, High, Medium, Low/Info
+    const categoryCounts = {};
+
+    alerts.forEach(alert => {
+        const riskCode = parseInt(alert.riskcode);
+
+        if (riskCode === 3) severityCounts[0]++;
+        else if (riskCode === 2) severityCounts[1]++;
+        else if (riskCode === 1) severityCounts[2]++;
+        else if (riskCode === 0) severityCounts[3]++;
+
+        // Compter par catégorie (WASC)
+        if (alert.wascid && alert.wascid !== "-1") {
+            const category = `WASC-${alert.wascid}`;
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
         }
-        
-        // Préparer les données pour les graphiques
-        const severityCounts = [0, 0, 0, 0]; // Critical, High, Medium, Low/Info
-        const categoryCounts = {};
-        
-        alerts.forEach(alert => {
-            const riskCode = parseInt(alert.riskcode);
-            
-            if (riskCode === 3) severityCounts[0]++;
-            else if (riskCode === 2) severityCounts[1]++;
-            else if (riskCode === 1) severityCounts[2]++;
-            else if (riskCode === 0) severityCounts[3]++;
-            
-            // Compter par catégorie (WASC)
-            if (alert.wascid && alert.wascid !== "-1") {
-                const category = `WASC-${alert.wascid}`;
-                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+    });
+
+    try {
+        // === Graphique de distribution par sévérité ===
+        const severityCtx = severityChart.getContext('2d');
+        zapSeverityChart = new Chart(severityCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
+                datasets: [{
+                    data: severityCounts,
+                    backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
             }
         });
-        
-        try {
-            // Graphique de distribution par sévérité
-            const severityCtx = severityChart.getContext('2d');
-            new Chart(severityCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
-                    datasets: [{
-                        data: severityCounts,
-                        backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
-                    }]
+
+        // === Graphique de distribution par catégorie ===
+        const categoryLabels = Object.keys(categoryCounts);
+        const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
+
+        const categoryCtx = categoryChart.getContext('2d');
+        zapCategoryChart = new Chart(categoryCtx, {
+            type: 'bar',
+            data: {
+                labels: categoryLabels,
+                datasets: [{
+                    label: 'Nombre de vulnérabilités',
+                    data: categoryData,
+                    backgroundColor: '#4e73df'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right'
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
                         }
                     }
                 }
-            });
-            
-            // Graphique de distribution par catégorie
-            const categoryLabels = Object.keys(categoryCounts);
-            const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
-            
-            const categoryCtx = categoryChart.getContext('2d');
-            new Chart(categoryCtx, {
-                type: 'bar',
-                data: {
-                    labels: categoryLabels,
-                    datasets: [{
-                        label: 'Nombre de vulnérabilités',
-                        data: categoryData,
-                        backgroundColor: '#4e73df'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0
-                            }
-                        }
-                    }
-                }
-            });
-        } catch (e) {
-            console.error("Erreur lors de la création des graphiques ZAP:", e);
-        }
+            }
+        });
+
+    } catch (e) {
+        console.error("Erreur lors de la création des graphiques ZAP:", e);
     }
-    
+}
+
     function populateVulnerabilityTable(alerts) {
         const tableBody = document.getElementById('zap-vulnerabilities-table-body');
         if (!tableBody) {
