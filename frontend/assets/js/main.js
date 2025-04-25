@@ -487,12 +487,12 @@ function initZapPage() {
     zapDataLoaded = false;
     
     // Charger les vulnérabilités de ZAP si la table existe
-    if (document.querySelector('#zap-vulnerabilities-table tbody')) {
+    if (document.querySelector('#zap-vulnerabilities-table-body')) {
         fetchVulnerabilities('zap');
     }
     
     // Charger l'historique des scans ZAP si la table existe
-    if (document.querySelector('#zap-history-table tbody')) {
+    if (document.querySelector('#zap-history-table-body')) {
         fetchScanHistory('zap');
     }
     
