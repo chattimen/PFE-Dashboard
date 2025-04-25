@@ -479,9 +479,15 @@ body.dark-mode select.form-control {
 
 
 .chart-container.small {
-    height: 200px;
+    min-height: 200px; /* Reduced height for a smaller chart */
+    width: 60%; /* Reduced width for a smaller chart */
+    margin: 0 auto; /* Center the smaller chart within the column */
 }
 
+/* Ensure the canvas adjusts to the smaller container */
+.chart-container.small canvas {
+    max-height: none; /* Already set, ensures canvas can adjust */
+}
 /* Modals */
 .modal {
     display: none;
@@ -663,6 +669,12 @@ body.dark-mode .notification {
     .col-6, .col-4, .col-3 {
         flex: 0 0 100%;
     }
+
+    .chart-container.small {
+        width: 100%; /* Full width on smaller screens */
+        min-height: 200px; /* Maintain the smaller height */
+    }
+}
     
     .navbar-container {
         flex-direction: column;
