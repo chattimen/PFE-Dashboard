@@ -472,9 +472,11 @@ body.dark-mode select.form-control {
 /* Graphiques */
 .chart-container {
     position: relative;
-    height: 300px;
-    margin-bottom: 20px;
+    min-height: 300px; /* allows expansion if needed */
+    margin-bottom: 40px; /* gives breathing room */
+    overflow: hidden;    /* prevents the chart from leaking out */
 }
+
 
 .chart-container.small {
     height: 200px;
