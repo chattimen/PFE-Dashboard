@@ -1,5 +1,5 @@
 /**
- * Script principal du dashboard de sécurité - Version corrigée
+ * Script principal du dashboard de sécurité
  */
 
 // Configuration globale
@@ -16,65 +16,29 @@ document.addEventListener('DOMContentLoaded', function() {
     setupTabNavigation();
     
     // Initialiser les pages spécifiques uniquement si elles sont présentes
-    if (getElement('dashboard-page')) {
+    if (document.getElementById('dashboard-page')) {
         initDashboard();
     }
     
-    if (getElement('trivy-page')) {
+    if (document.getElementById('trivy-page')) {
         initTrivyPage();
     }
     
-    if (getElement('sonarqube-page')) {
+    if (document.getElementById('sonarqube-page')) {
         initSonarQubePage();
     }
     
-    if (getElement('zap-page')) {
+    if (document.getElementById('zap-page')) {
         initZapPage();
     }
     
-    if (getElement('selenium-page')) {
+    if (document.getElementById('selenium-page')) {
         initSeleniumPage();
     }
     
     // Initialiser les contrôles globaux
     initGlobalControls();
 });
-
-/**
- * Fonction utilitaire améliorée pour vérifier si un élément existe
- * et le retourner s'il existe
- */
-function getElement(id) {
-    const element = document.getElementById(id);
-    if (!element) {
-        console.warn(`Élément ${id} non trouvé dans le DOM`);
-    }
-    return element;
-}
-
-/**
- * Fonction utilitaire pour standardiser les noms d'outils entre l'API et le frontend
- */
-function standardizeToolName(toolName, direction = 'toApi') {
-    if (!toolName) return '';
-    
-    const mappings = {
-        'zap': 'owasp_zap',
-        'owasp_zap': 'zap'
-    };
-    
-    if (direction === 'toApi') {
-        // Conversion du nom d'outil du frontend vers l'API
-        return mappings[toolName] || toolName;
-    } else {
-        // Conversion du nom d'outil de l'API vers le frontend
-        const reverseMappings = Object.entries(mappings).reduce((acc, [key, value]) => {
-            acc[value] = key;
-            return acc;
-        }, {});
-        return reverseMappings[toolName] || toolName;
-    }
-}
 
 /**
  * Configuration de la navigation par onglets
@@ -96,7 +60,7 @@ function setupTabNavigation() {
             });
             
             // Vérifier si la page cible existe
-            const targetElement = getElement(`${targetPage}-page`);
+            const targetElement = document.getElementById(`${targetPage}-page`);
             if (targetElement) {
                 // Afficher la page demandée
                 targetElement.style.display = 'block';
@@ -136,7 +100,7 @@ function setupTabNavigation() {
  */
 function initGlobalControls() {
     // Gestion du sélecteur de période
-    const periodSelector = getElement('period-selector');
+    const periodSelector = document.getElementById('period-selector');
     if (periodSelector) {
         periodSelector.addEventListener('change', function() {
             // Recharger les données avec la nouvelle période
@@ -155,7 +119,7 @@ function initGlobalControls() {
     }
     
     // Gestion du bouton de thème sombre/clair
-    const themeToggle = getElement('theme-toggle');
+    const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
         themeToggle.addEventListener('click', function() {
             darkMode = !darkMode;
@@ -195,26 +159,33 @@ function updateTheme() {
  */
 function initDashboard() {
     // Récupérer la période sélectionnée
-    const periodSelector = getElement('period-selector');
+    const periodSelector = document.getElementById('period-selector');
     const days = periodSelector ? parseInt(periodSelector.value) : 30;
     
     // Vérifier si les éléments requis existent avant de charger les données
-    if (getElement('vulnerability-distribution-chart')) {
+    if (document.getElementById('vulnerability-distribution-chart')) {
         loadVulnerabilityStats(days);
     }
     
-    if (getElement('scan-trends-chart')) {
+    if (document.getElementById('scan-trends-chart')) {
         loadScanStats(days);
         loadScanTrends(days);
     }
     
-    if (getElement('vulnerability-trends-chart')) {
+    if (document.getElementById('vulnerability-trends-chart')) {
         loadVulnerabilityTrends(days);
     }
     
-    if (getElement('latest-scans-table')) {
+    if (document.getElementById('latest-scans-table')) {
         loadLatestScans();
     }
+}
+
+/**
+ * Fonction utilitaire pour vérifier si un élément existe
+ */
+function elementExists(id) {
+    return document.getElementById(id) !== null;
 }
 
 /**
@@ -222,18 +193,12 @@ function initDashboard() {
  */
 function loadVulnerabilityStats(days = 30) {
     fetch(`${API_BASE_URL}/vulnerabilities/stats?days=${days}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
                 updateVulnerabilityStatsUI(data.data);
             } else {
                 console.error('Erreur lors du chargement des statistiques de vulnérabilités:', data.message);
-                showNotification(`Erreur: ${data.message || 'Erreur inconnue'}`, 'error');
             }
         })
         .catch(error => {
@@ -242,16 +207,17 @@ function loadVulnerabilityStats(days = 30) {
             showNotification('Erreur de connexion à l\'API. Vérifiez que le serveur est bien en marche.', 'error');
         });
 }
-
+function getElement(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+        console.warn(`Élément ${id} non trouvé dans le DOM`);
+    }
+    return element;
+}
 /**
  * Mise à jour de l'interface avec les statistiques de vulnérabilités
  */
 function updateVulnerabilityStatsUI(stats) {
-    if (!Array.isArray(stats)) {
-        console.error('Format de données invalide pour les statistiques de vulnérabilités');
-        return;
-    }
-
     // Compteurs par sévérité
     let criticalCount = 0;
     let highCount = 0;
@@ -262,31 +228,31 @@ function updateVulnerabilityStatsUI(stats) {
     stats.forEach(stat => {
         if (stat.status === 'open') {
             if (stat.severity === 'critical') {
-                criticalCount += parseInt(stat.count) || 0;
+                criticalCount += parseInt(stat.count);
             } else if (stat.severity === 'high') {
-                highCount += parseInt(stat.count) || 0;
+                highCount += parseInt(stat.count);
             } else if (stat.severity === 'medium') {
-                mediumCount += parseInt(stat.count) || 0;
+                mediumCount += parseInt(stat.count);
             } else if (stat.severity === 'low') {
-                lowCount += parseInt(stat.count) || 0;
+                lowCount += parseInt(stat.count);
             }
         }
     });
     
     // Mettre à jour les compteurs dans l'interface (avec vérification)
-    const criticalElement = getElement('critical-count');
+    const criticalElement = document.getElementById('critical-count');
     if (criticalElement) criticalElement.textContent = criticalCount;
     
-    const highElement = getElement('high-count');
+    const highElement = document.getElementById('high-count');
     if (highElement) highElement.textContent = highCount;
     
-    const mediumElement = getElement('medium-count');
+    const mediumElement = document.getElementById('medium-count');
     if (mediumElement) mediumElement.textContent = mediumCount;
     
-    const lowElement = getElement('low-count');
+    const lowElement = document.getElementById('low-count');
     if (lowElement) lowElement.textContent = lowCount;
     
-    const totalElement = getElement('total-count');
+    const totalElement = document.getElementById('total-count');
     if (totalElement) totalElement.textContent = criticalCount + highCount + mediumCount + lowCount;
     
     // Mettre à jour le graphique de répartition s'il existe
@@ -300,59 +266,52 @@ function updateVulnerabilityStatsUI(stats) {
  * Mise à jour du graphique de distribution des vulnérabilités
  */
 function updateVulnerabilityDistributionChart(critical, high, medium, low) {
-    const chartElement = getElement('vulnerability-distribution-chart');
+    const chartElement = document.getElementById('vulnerability-distribution-chart');
     if (!chartElement) {
+        console.warn('Élément de graphique vulnerability-distribution-chart non trouvé');
         return;
     }
     
-    try {
-        const ctx = chartElement.getContext('2d');
-        if (!ctx) {
-            console.warn('Impossible d\'obtenir le contexte 2D pour vulnerability-distribution-chart');
-            return;
-        }
-        
-        // Supprimer l'ancien graphique s'il existe
-        if (window.vulnerabilityChart) {
-            window.vulnerabilityChart.destroy();
-        }
-        
-        // Créer le nouveau graphique
-        window.vulnerabilityChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
-                datasets: [{
-                    data: [critical, high, medium, low],
-                    backgroundColor: [
-                        '#d81b60', // Rouge
-                        '#e65100', // Orange
-                        '#ffc107', // Jaune
-                        '#2196f3'  // Bleu
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: darkMode ? '#ffffff' : '#333333'
-                        }
-                    },
-                    title: {
-                        display: true,
-                        text: 'Distribution des vulnérabilités par sévérité',
+    const ctx = chartElement.getContext('2d');
+    
+    // Supprimer l'ancien graphique s'il existe
+    if (window.vulnerabilityChart) {
+        window.vulnerabilityChart.destroy();
+    }
+    
+    // Créer le nouveau graphique
+    window.vulnerabilityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
+            datasets: [{
+                data: [critical, high, medium, low],
+                backgroundColor: [
+                    '#d81b60', // Rouge
+                    '#e65100', // Orange
+                    '#ffc107', // Jaune
+                    '#2196f3'  // Bleu
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
                         color: darkMode ? '#ffffff' : '#333333'
                     }
+                },
+                title: {
+                    display: true,
+                    text: 'Distribution des vulnérabilités par sévérité',
+                    color: darkMode ? '#ffffff' : '#333333'
                 }
             }
-        });
-    } catch (error) {
-        console.error('Erreur lors de la création du graphique de distribution:', error);
-    }
+        }
+    });
 }
 
 /**
@@ -360,23 +319,16 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
  */
 function loadVulnerabilityTrends(days = 30) {
     fetch(`${API_BASE_URL}/vulnerabilities/trends?days=${days}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
                 updateVulnerabilityTrendsChart(data.data);
             } else {
                 console.error('Erreur lors du chargement des tendances:', data.message);
-                showNotification(`Erreur: ${data.message || 'Erreur inconnue'}`, 'error');
             }
         })
         .catch(error => {
             console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur de connexion à l\'API. Vérifiez que le serveur est bien en marche.', 'error');
         });
 }
 
@@ -384,117 +336,105 @@ function loadVulnerabilityTrends(days = 30) {
  * Mise à jour du graphique des tendances de vulnérabilités
  */
 function updateVulnerabilityTrendsChart(trends) {
-    if (!Array.isArray(trends)) {
-        console.error('Format de données invalide pour les tendances des vulnérabilités');
-        return;
-    }
-
-    const chartElement = getElement('vulnerability-trends-chart');
+    const chartElement = document.getElementById('vulnerability-trends-chart');
     if (!chartElement) {
+        console.warn('Élément de graphique vulnerability-trends-chart non trouvé');
         return;
     }
     
-    try {
-        const ctx = chartElement.getContext('2d');
-        if (!ctx) {
-            console.warn('Impossible d\'obtenir le contexte 2D pour vulnerability-trends-chart');
-            return;
-        }
-        
-        // Préparation des données
-        const labels = trends.map(item => {
-            const date = new Date(item.date);
-            return date.toLocaleDateString();
-        });
-        
-        const criticalData = trends.map(item => item.critical || 0);
-        const highData = trends.map(item => item.high || 0);
-        const mediumData = trends.map(item => item.medium || 0);
-        const lowData = trends.map(item => item.low || 0);
-        
-        // Supprimer l'ancien graphique s'il existe
-        if (window.vulnerabilityTrendsChart) {
-            window.vulnerabilityTrendsChart.destroy();
-        }
-        
-        // Créer le nouveau graphique
-        window.vulnerabilityTrendsChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Critique',
-                        data: criticalData,
-                        backgroundColor: 'rgba(216, 27, 96, 0.2)',
-                        borderColor: '#d81b60',
-                        borderWidth: 2,
-                        tension: 0.4
+    const ctx = chartElement.getContext('2d');
+    
+    // Préparation des données
+    const labels = trends.map(item => {
+        const date = new Date(item.date);
+        return date.toLocaleDateString();
+    });
+    
+    const criticalData = trends.map(item => item.critical);
+    const highData = trends.map(item => item.high);
+    const mediumData = trends.map(item => item.medium);
+    const lowData = trends.map(item => item.low);
+    
+    // Supprimer l'ancien graphique s'il existe
+    if (window.vulnerabilityTrendsChart) {
+        window.vulnerabilityTrendsChart.destroy();
+    }
+    
+    // Créer le nouveau graphique
+    window.vulnerabilityTrendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Critique',
+                    data: criticalData,
+                    backgroundColor: 'rgba(216, 27, 96, 0.2)',
+                    borderColor: '#d81b60',
+                    borderWidth: 2,
+                    tension: 0.4
+                },
+                {
+                    label: 'Élevée',
+                    data: highData,
+                    backgroundColor: 'rgba(230, 81, 0, 0.2)',
+                    borderColor: '#e65100',
+                    borderWidth: 2,
+                    tension: 0.4
+                },
+                {
+                    label: 'Moyenne',
+                    data: mediumData,
+                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                    borderColor: '#ffc107',
+                    borderWidth: 2,
+                    tension: 0.4
+                },
+                {
+                    label: 'Faible',
+                    data: lowData,
+                    backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                    borderColor: '#2196f3',
+                    borderWidth: 2,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    grid: {
+                        color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
                     },
-                    {
-                        label: 'Élevée',
-                        data: highData,
-                        backgroundColor: 'rgba(230, 81, 0, 0.2)',
-                        borderColor: '#e65100',
-                        borderWidth: 2,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Moyenne',
-                        data: mediumData,
-                        backgroundColor: 'rgba(255, 193, 7, 0.2)',
-                        borderColor: '#ffc107',
-                        borderWidth: 2,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Faible',
-                        data: lowData,
-                        backgroundColor: 'rgba(33, 150, 243, 0.2)',
-                        borderColor: '#2196f3',
-                        borderWidth: 2,
-                        tension: 0.4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        grid: {
-                            color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                        },
-                        ticks: {
-                            color: darkMode ? '#ffffff' : '#333333'
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                        },
-                        ticks: {
-                            color: darkMode ? '#ffffff' : '#333333'
-                        }
+                    ticks: {
+                        color: darkMode ? '#ffffff' : '#333333'
                     }
                 },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: darkMode ? '#ffffff' : '#333333'
-                        }
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
                     },
-                    title: {
-                        display: true,
-                        text: 'Évolution des vulnérabilités au cours du temps',
+                    ticks: {
                         color: darkMode ? '#ffffff' : '#333333'
                     }
                 }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: darkMode ? '#ffffff' : '#333333'
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Évolution des vulnérabilités au cours du temps',
+                    color: darkMode ? '#ffffff' : '#333333'
+                }
             }
-        });
-    } catch (error) {
-        console.error('Erreur lors de la création du graphique des tendances:', error);
-    }
+        }
+    });
 }
 
 /**
@@ -503,32 +443,26 @@ function updateVulnerabilityTrendsChart(trends) {
 function updateChartTheme(chart) {
     if (!chart) return;
     
-    try {
-        // Mettre à jour les couleurs du graphique en fonction du thème
-        if (chart.options?.plugins?.legend?.labels) {
-            chart.options.plugins.legend.labels.color = darkMode ? '#ffffff' : '#333333';
+    // Mettre à jour les couleurs du graphique en fonction du thème
+    chart.options.plugins.legend.labels.color = darkMode ? '#ffffff' : '#333333';
+    chart.options.plugins.title.color = darkMode ? '#ffffff' : '#333333';
+    
+    if (chart.options.scales) {
+        if (chart.options.scales.x) {
+            chart.options.scales.x.grid.color = darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            chart.options.scales.x.ticks.color = darkMode ? '#ffffff' : '#333333';
         }
-        
-        if (chart.options?.plugins?.title) {
-            chart.options.plugins.title.color = darkMode ? '#ffffff' : '#333333';
+        if (chart.options.scales.y) {
+            chart.options.scales.y.grid.color = darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            chart.options.scales.y.ticks.color = darkMode ? '#ffffff' : '#333333';
         }
-        
-        if (chart.options?.scales) {
-            if (chart.options.scales.x) {
-                chart.options.scales.x.grid.color = darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-                chart.options.scales.x.ticks.color = darkMode ? '#ffffff' : '#333333';
-            }
-            if (chart.options.scales.y) {
-                chart.options.scales.y.grid.color = darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-                chart.options.scales.y.ticks.color = darkMode ? '#ffffff' : '#333333';
-            }
-        }
-        
-        chart.update();
-    } catch (error) {
-        console.error('Erreur lors de la mise à jour du thème du graphique:', error);
     }
+    
+    chart.update();
 }
+
+// Fonctions pour les autres pages (Trivy, SonarQube, etc.)
+// Ces fonctions seront implémentées selon les besoins spécifiques
 
 /**
  * Initialisation de la page Trivy
@@ -574,38 +508,49 @@ function initZapPage() {
     // Charger les données spécifiques à ZAP
     loadZapData();
 }
-
 /**
  * Initialisation de la page Selenium
  */
 function initSeleniumPage() {
     // Charger les tests Selenium si la table existe
-    const seleniumHistoryTable = document.querySelector('#selenium-history-table tbody');
-    if (seleniumHistoryTable) {
+    if (document.querySelector('#selenium-history-table tbody')) {
         fetchScanHistory('selenium');
     }
 }
-
+function standardizeToolName(toolName, direction = 'toApi') {
+    if (!toolName) return '';
+    
+    const mappings = {
+        'zap': 'owasp_zap',
+        'owasp_zap': 'zap'
+    };
+    
+    if (direction === 'toApi') {
+        // Conversion du nom d'outil du frontend vers l'API
+        return mappings[toolName] || toolName;
+    } else {
+        // Conversion du nom d'outil de l'API vers le frontend
+        const reverseMappings = Object.entries(mappings).reduce((acc, [key, value]) => {
+            acc[value] = key;
+            return acc;
+        }, {});
+        return reverseMappings[toolName] || toolName;
+    }
+}
 /**
  * Récupération des vulnérabilités par outil
  */
 function fetchVulnerabilities(toolName, limit = 50, offset = 0) {
-    // Standardiser le nom de l'outil pour l'API
-    const apiToolName = standardizeToolName(toolName, 'toApi');
+    // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
+    const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
     
     fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${apiToolName}&limit=${limit}&offset=${offset}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
                 updateVulnerabilitiesTable(data.data, toolName);
             } else {
                 console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
-                showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
             }
         })
         .catch(error => {
@@ -618,11 +563,6 @@ function fetchVulnerabilities(toolName, limit = 50, offset = 0) {
  * Mise à jour de la table des vulnérabilités
  */
 function updateVulnerabilitiesTable(vulnerabilities, toolName) {
-    if (!Array.isArray(vulnerabilities)) {
-        console.error(`Format de données invalide pour les vulnérabilités ${toolName}`);
-        return;
-    }
-    
     const tableId = `${toolName}-vulnerabilities-table`;
     const tableBody = document.querySelector(`#${tableId} tbody`);
     
@@ -631,56 +571,40 @@ function updateVulnerabilitiesTable(vulnerabilities, toolName) {
         return;
     }
     
-    try {
-        // Vider la table
-        tableBody.innerHTML = '';
+    // Vider la table
+    tableBody.innerHTML = '';
+    
+    // Remplir avec les nouvelles données
+    vulnerabilities.forEach(vuln => {
+        const row = document.createElement('tr');
         
-        // Si pas de vulnérabilités, afficher un message
-        if (vulnerabilities.length === 0) {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="7" class="text-center">Aucune vulnérabilité trouvée</td>`;
-            tableBody.appendChild(row);
-            return;
-        }
+        // Définir la classe de sévérité
+        row.classList.add(`severity-${vuln.severity}`);
         
-        // Remplir avec les nouvelles données
-        vulnerabilities.forEach(vuln => {
-            const row = document.createElement('tr');
-            
-            // Définir la classe de sévérité
-            if (vuln.severity) {
-                row.classList.add(`severity-${vuln.severity}`);
-            }
-            
-            // Créer le contenu de la ligne avec une gestion des valeurs manquantes
-            row.innerHTML = `
-                <td>${vuln.title || 'N/A'}</td>
-                <td><span class="badge severity-${vuln.severity || 'unknown'}">${formatSeverity(vuln.severity)}</span></td>
-                <td>${vuln.location || 'N/A'}</td>
-                <td>${vuln.category || 'N/A'}</td>
-                <td>${formatDate(vuln.last_detected)}</td>
-                <td><span class="badge status-${vuln.status || 'unknown'}">${formatStatus(vuln.status)}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
-                        <i class="fas fa-info-circle"></i>
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
-                        <i class="fas fa-check"></i>
-                    </button>
-                </td>
-            `;
-            
-            tableBody.appendChild(row);
-        });
+        row.innerHTML = `
+            <td>${vuln.title}</td>
+            <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
+            <td>${vuln.location || 'N/A'}</td>
+            <td>${vuln.category || 'N/A'}</td>
+            <td>${formatDate(vuln.last_detected)}</td>
+            <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
+                    <i class="fas fa-check"></i>
+                </button>
+            </td>
+        `;
         
-        // Mettre à jour le compteur s'il existe
-        const countElement = getElement(`${toolName}-vulnerability-count`);
-        if (countElement) {
-            countElement.textContent = vulnerabilities.length;
-        }
-    } catch (error) {
-        console.error(`Erreur lors de la mise à jour de la table des vulnérabilités ${toolName}:`, error);
-        showNotification(`Erreur lors de l'affichage des vulnérabilités ${toolName}`, 'error');
+        tableBody.appendChild(row);
+    });
+    
+    // Mettre à jour le compteur s'il existe
+    const countElement = document.getElementById(`${toolName}-vulnerability-count`);
+    if (countElement) {
+        countElement.textContent = vulnerabilities.length;
     }
 }
 
@@ -688,8 +612,6 @@ function updateVulnerabilitiesTable(vulnerabilities, toolName) {
  * Formatage de la sévérité pour l'affichage
  */
 function formatSeverity(severity) {
-    if (!severity) return 'Inconnue';
-    
     switch (severity.toLowerCase()) {
         case 'critical':
             return 'Critique';
@@ -710,8 +632,6 @@ function formatSeverity(severity) {
  * Formatage du statut pour l'affichage
  */
 function formatStatus(status) {
-    if (!status) return 'Inconnu';
-    
     switch (status.toLowerCase()) {
         case 'open':
             return 'Ouverte';
@@ -722,7 +642,7 @@ function formatStatus(status) {
         case 'accepted_risk':
             return 'Risque accepté';
         default:
-            return 'Inconnu';
+            return 'Inconnue';
     }
 }
 
@@ -748,18 +668,8 @@ function formatDate(dateString) {
  * Affichage des détails d'une vulnérabilité
  */
 function viewVulnerabilityDetails(id) {
-    if (!id) {
-        console.error('ID de vulnérabilité manquant');
-        return;
-    }
-    
     fetch(`${API_BASE_URL}/vulnerabilities/${id}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
                 showVulnerabilityModal(data.data);
@@ -778,13 +688,8 @@ function viewVulnerabilityDetails(id) {
  * Affichage d'une modal avec les détails d'une vulnérabilité
  */
 function showVulnerabilityModal(vuln) {
-    if (!vuln || !vuln.id) {
-        console.error('Données de vulnérabilité invalides');
-        return;
-    }
-    
     // Créer ou récupérer la modal
-    let modal = getElement('vulnerability-modal');
+    let modal = document.getElementById('vulnerability-modal');
     
     if (!modal) {
         modal = document.createElement('div');
@@ -797,14 +702,14 @@ function showVulnerabilityModal(vuln) {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>${vuln.title || 'Détails de la vulnérabilité'}</h2>
+                <h2>${vuln.title}</h2>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
                 <div class="vulnerability-details">
                     <p><strong>ID:</strong> ${vuln.vulnerability_id || 'N/A'}</p>
-                    <p><strong>Sévérité:</strong> <span class="badge severity-${vuln.severity || 'unknown'}">${formatSeverity(vuln.severity)}</span></p>
-                    <p><strong>Statut:</strong> <span class="badge status-${vuln.status || 'unknown'}">${formatStatus(vuln.status)}</span></p>
+                    <p><strong>Sévérité:</strong> <span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></p>
+                    <p><strong>Statut:</strong> <span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></p>
                     <p><strong>Outil:</strong> ${formatToolName(vuln.tool_name)}</p>
                     <p><strong>Emplacement:</strong> ${vuln.location || 'N/A'}</p>
                     <p><strong>Catégorie:</strong> ${vuln.category || 'N/A'}</p>
@@ -822,7 +727,7 @@ function showVulnerabilityModal(vuln) {
                     </div>
                 </div>
                 
-               <div class="modal-actions">
+                <div class="modal-actions">
                     <button class="btn btn-success" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">Marquer comme corrigé</button>
                     <button class="btn btn-warning" onclick="updateVulnerabilityStatus(${vuln.id}, 'false_positive')">Faux positif</button>
                     <button class="btn btn-secondary" onclick="updateVulnerabilityStatus(${vuln.id}, 'accepted_risk')">Risque accepté</button>
@@ -836,11 +741,9 @@ function showVulnerabilityModal(vuln) {
     
     // Gestion de la fermeture
     const closeBtn = modal.querySelector('.close-modal');
-    if (closeBtn) {
-        closeBtn.onclick = function() {
-            modal.style.display = 'none';
-        };
-    }
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    };
     
     // Fermer si on clique en dehors de la modal
     window.onclick = function(event) {
@@ -874,11 +777,6 @@ function formatToolName(toolName) {
  * Mise à jour du statut d'une vulnérabilité
  */
 function updateVulnerabilityStatus(id, newStatus) {
-    if (!id || !newStatus) {
-        console.error('ID ou nouveau statut manquant');
-        return;
-    }
-    
     fetch(`${API_BASE_URL}/vulnerabilities/${id}`, {
         method: 'PATCH',
         headers: {
@@ -888,16 +786,11 @@ function updateVulnerabilityStatus(id, newStatus) {
             status: newStatus
         })
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
             // Fermer la modal si elle est ouverte
-            const modal = getElement('vulnerability-modal');
+            const modal = document.getElementById('vulnerability-modal');
             if (modal) {
                 modal.style.display = 'none';
             }
@@ -917,7 +810,7 @@ function updateVulnerabilityStatus(id, newStatus) {
             showNotification(`Vulnérabilité mise à jour avec succès`, 'success');
         } else {
             console.error('Erreur lors de la mise à jour:', data.message);
-            showNotification(`Erreur: ${data.message || 'Erreur inconnue'}`, 'error');
+            showNotification(`Erreur: ${data.message}`, 'error');
         }
     })
     .catch(error => {
@@ -930,90 +823,74 @@ function updateVulnerabilityStatus(id, newStatus) {
  * Récupération de l'historique des scans par outil
  */
 function fetchScanHistory(toolName, limit = 10) {
-    // Standardiser le nom de l'outil pour l'API
-    const apiToolName = standardizeToolName(toolName, 'toApi');
+    // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
+    const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
     
+    // Assurez-vous que API_BASE_URL est correctement défini
     fetch(`${API_BASE_URL}/scans?tool_name=${apiToolName}&limit=${limit}`)
         .then(response => {
+            // Vérifier si la réponse HTTP est OK (statut 200-299)
             if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+                // Si non OK, rejeter la promesse pour passer au .catch
+                 return response.json().then(errorData => {
+                     throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${errorData.message || response.statusText}`);
+                 }).catch(() => {
+                     // Gérer le cas où la réponse n'est pas OK et le corps n'est pas un JSON valide
+                     throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${response.statusText}`);
+                 });
             }
+            // Si OK, traiter la réponse JSON
             return response.json();
         })
         .then(data => {
-            // Vérification de la structure de la réponse
-            if (!data || typeof data !== 'object') {
-                throw new Error('Format de réponse invalide');
-            }
-            
-            if (data.status === 'success' && Array.isArray(data.data)) {
+            // Ce bloc s'exécute si fetch et response.json() réussissent
+            if (data.status === 'success') {
                 // Appeler la fonction pour mettre à jour le tableau avec les données reçues
                 updateScanHistoryTable(data.data, toolName);
             } else {
                 // Si l'API renvoie un statut 'error' dans le corps de la réponse
-                console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, 
-                    data.message || 'Pas de message d\'erreur');
-                showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}`, 'warning');
+                console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
+                // Optionnel : Afficher une notification même pour une erreur logique de l'API
+                 showNotification(`L\'API a signalé une erreur pour l\'historique ${toolName}: ${data.message}`, 'warning'); // Utilisez 'warning' ou 'error'
             }
         })
         .catch(error => {
+            // Ce bloc s'exécute si une erreur réseau survient ou si response.ok était false
             console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
-            showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
+            // Afficher une notification à l'utilisateur
+            showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error'); // Correction de la parenthèse en trop et affichage du message d'erreur
         });
 }
-
-/**
- * Mise à jour de la table d'historique des scans
- */
-function updateScanHistoryTable(scans, toolName) {
-    if (!Array.isArray(scans)) {
-        console.error(`Format de données invalide pour l'historique des scans ${toolName}`);
-        return;
-    }
-    
-    const tableId = `${toolName}-history-table`;
-    const tableBody = document.querySelector(`#${tableId} tbody`);
-    
-    if (!tableBody) {
-        console.warn(`Table body non trouvé pour ${tableId}`);
-        return;
-    }
-    
-    try {
-        // Vider la table
-        tableBody.innerHTML = '';
+    /**
+     * Mise à jour de la table d'historique des scans
+     */
+    function updateScanHistoryTable(scans, toolName) {
+        const tableId = `${toolName}-history-table`;
+        const tableBody = document.querySelector(`#${tableId} tbody`);
         
-        // Si pas de scans, afficher un message
-        if (scans.length === 0) {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="8" class="text-center">Aucun scan trouvé</td>`;
-            tableBody.appendChild(row);
+        if (!tableBody) {
+            console.warn(`Table body non trouvé pour ${tableId}`);
             return;
         }
+        
+        // Vider la table
+        tableBody.innerHTML = '';
         
         // Remplir avec les nouvelles données
         scans.forEach(scan => {
             const row = document.createElement('tr');
             
             // Définir la classe de statut
-            if (scan.scan_status) {
-                row.classList.add(`status-${scan.scan_status}`);
-            }
-            
-            // Vérifier et convertir les valeurs numériques
-            const totalIssues = parseInt(scan.total_issues) || 0;
-            const highSeverity = parseInt(scan.high_severity_count) || 0;
-            const mediumSeverity = parseInt(scan.medium_severity_count) || 0;
-            const lowSeverity = parseInt(scan.low_severity_count) || 0;
+            row.classList.add(`status-${scan.scan_status}`);
             
             row.innerHTML = `
                 <td>${formatDate(scan.scan_date)}</td>
-                <td>${scan.target_name || 'N/A'}</td>
-                <td><span class="badge status-${scan.scan_status || 'unknown'}">${formatScanStatus(scan.scan_status)}</span></td>
-                <td>${totalIssues}</td>
-                <td>${highSeverity}</td>
-                <td>${mediumSeverity}</td>
-                <td>${lowSeverity}</td>
+                <td>${scan.target_name}</td>
+                <td><span class="badge status-${scan.scan_status}">${formatScanStatus(scan.scan_status)}</span></td>
+                <td>${scan.total_issues}</td>
+                <td>${scan.high_severity_count}</td>
+                <td>${scan.medium_severity_count}</td>
+                <td>${scan.low_severity_count}</td>
                 <td>
                     <button class="btn btn-sm btn-info" onclick="viewScanDetails(${scan.id})">
                         <i class="fas fa-info-circle"></i>
@@ -1023,135 +900,102 @@ function updateScanHistoryTable(scans, toolName) {
             
             tableBody.appendChild(row);
         });
-    } catch (error) {
-        console.error(`Erreur lors de la mise à jour de la table d'historique ${toolName}:`, error);
-        showNotification(`Erreur lors de l'affichage de l'historique ${toolName}`, 'error');
-    }
-}
-
-/**
- * Formatage du statut d'un scan pour l'affichage
- */
-function formatScanStatus(status) {
-    if (!status) return 'Inconnu';
-    
-    switch (status.toLowerCase()) {
-        case 'success':
-            return 'Succès';
-        case 'warning':
-            return 'Avertissement';
-        case 'failed':
-            return 'Échec';
-        default:
-            return 'Inconnu';
-    }
-}
-
-/**
- * Chargement des statistiques des scans
- */
-function loadScanStats(days = 30) {
-    fetch(`${API_BASE_URL}/scans/stats?days=${days}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                updateScanStatsUI(data.data);
-            } else {
-                console.error('Erreur lors du chargement des statistiques de scans:', data.message);
-                showNotification(`Erreur: ${data.message || 'Erreur inconnue'}`, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur lors du chargement des statistiques de scans', 'error');
-        });
-}
-
-/**
- * Mise à jour de l'interface avec les statistiques de scans
- */
-function updateScanStatsUI(stats) {
-    if (!Array.isArray(stats)) {
-        console.error('Format de données invalide pour les statistiques de scans');
-        return;
     }
     
-    // Mettre à jour les compteurs dans l'interface pour chaque outil
-    stats.forEach(stat => {
-        if (!stat.tool_name) return;
+    /**
+     * Formatage du statut d'un scan pour l'affichage
+     */
+    function formatScanStatus(status) {
+        if (!status) return 'Inconnu';
         
-        const toolName = stat.tool_name.toLowerCase();
-        
-        // Convertir owasp_zap en zap pour la sélection des éléments DOM
-        const domToolName = standardizeToolName(toolName, 'fromApi');
-        
-        // Mettre à jour le nombre total de scans
-        const scanCountElement = getElement(`${domToolName}-scan-count`);
-        if (scanCountElement) {
-            scanCountElement.textContent = stat.total_scans || 0;
+        switch (status.toLowerCase()) {
+            case 'success':
+                return 'Succès';
+            case 'warning':
+                return 'Avertissement';
+            case 'failed':
+                return 'Échec';
+            default:
+                return 'Inconnu';
         }
-        
-        // Mettre à jour le taux de succès
-        const successRateElement = getElement(`${domToolName}-success-rate`);
-        if (successRateElement && stat.total_scans > 0) {
-            const totalScans = parseInt(stat.total_scans) || 0;
-            const successCount = parseInt(stat.success_count) || 0;
-            const successRate = totalScans > 0 ? (successCount / totalScans * 100).toFixed(1) : '0.0';
-            successRateElement.textContent = `${successRate}%`;
-        }
-    });
-}
-
-/**
- * Chargement des tendances des scans
- */
-function loadScanTrends(days = 30) {
-    fetch(`${API_BASE_URL}/scans/trends?days=${days}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+    }
+    
+    /**
+     * Chargement des statistiques des scans
+     */
+    function loadScanStats(days = 30) {
+        fetch(`${API_BASE_URL}/scans/stats?days=${days}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateScanStatsUI(data.data);
+                } else {
+                    console.error('Erreur lors du chargement des statistiques de scans:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la requête API:', error);
+                showNotification('Erreur lors du chargement des statistiques de scans', 'error');
+            });
+    }
+    
+    /**
+     * Mise à jour de l'interface avec les statistiques de scans
+     */
+    function updateScanStatsUI(stats) {
+        // Mettre à jour les compteurs dans l'interface pour chaque outil
+        stats.forEach(stat => {
+            const toolName = stat.tool_name?.toLowerCase() || '';
+            if (!toolName) return;
+            
+            // Convertir owasp_zap en zap pour la sélection des éléments DOM
+            const domToolName = toolName === 'owasp_zap' ? 'zap' : toolName;
+            
+            // Mettre à jour le nombre total de scans
+            const scanCountElement = document.getElementById(`${domToolName}-scan-count`);
+            if (scanCountElement) {
+                scanCountElement.textContent = stat.total_scans;
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                updateScanTrendsChart(data.data);
-            } else {
-                console.error('Erreur lors du chargement des tendances de scans:', data.message);
-                showNotification(`Erreur: ${data.message || 'Erreur inconnue'}`, 'error');
+            
+            // Mettre à jour le taux de succès
+            const successRateElement = document.getElementById(`${domToolName}-success-rate`);
+            if (successRateElement && stat.total_scans > 0) {
+                const successRate = (stat.success_count / stat.total_scans * 100).toFixed(1);
+                successRateElement.textContent = `${successRate}%`;
             }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur lors du chargement des tendances', 'error');
         });
-}
-
-/**
- * Mise à jour du graphique des tendances de scans
- */
-function updateScanTrendsChart(trends) {
-    if (!Array.isArray(trends)) {
-        console.error('Format de données invalide pour les tendances de scans');
-        return;
     }
     
-    const chartElement = getElement('scan-trends-chart');
-    if (!chartElement) {
-        return;
+    /**
+     * Chargement des tendances des scans
+     */
+    function loadScanTrends(days = 30) {
+        fetch(`${API_BASE_URL}/scans/trends?days=${days}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateScanTrendsChart(data.data);
+                } else {
+                    console.error('Erreur lors du chargement des tendances de scans:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la requête API:', error);
+                showNotification('Erreur lors du chargement des tendances', 'error');
+            });
     }
     
-    try {
-        const ctx = chartElement.getContext('2d');
-        if (!ctx) {
-            console.warn('Impossible d\'obtenir le contexte 2D pour scan-trends-chart');
+    /**
+     * Mise à jour du graphique des tendances de scans
+     */
+    function updateScanTrendsChart(trends) {
+        const chartElement = document.getElementById('scan-trends-chart');
+        if (!chartElement) {
+            console.warn('Élément de graphique scan-trends-chart non trouvé');
             return;
         }
+        
+        const ctx = chartElement.getContext('2d');
         
         // Préparation des données
         const labels = trends.map(item => {
@@ -1159,10 +1003,10 @@ function updateScanTrendsChart(trends) {
             return date.toLocaleDateString();
         });
         
-        const trivyData = trends.map(item => item.trivy_scans || 0);
-        const sonarData = trends.map(item => item.sonarqube_scans || 0);
-        const zapData = trends.map(item => item.zap_scans || 0);
-        const seleniumData = trends.map(item => item.selenium_scans || 0);
+        const trivyData = trends.map(item => item.trivy_scans);
+        const sonarData = trends.map(item => item.sonarqube_scans);
+        const zapData = trends.map(item => item.zap_scans);
+        const seleniumData = trends.map(item => item.selenium_scans);
         
         // Supprimer l'ancien graphique s'il existe
         if (window.scanTrendsChart) {
@@ -1244,88 +1088,57 @@ function updateScanTrendsChart(trends) {
                 }
             }
         });
-    } catch (error) {
-        console.error('Erreur lors de la création du graphique des tendances de scans:', error);
-    }
-}
-
-/**
- * Chargement des derniers scans pour toutes les catégories
- */
-function loadLatestScans() {
-    fetch(`${API_BASE_URL}/scans?limit=10`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                updateLatestScansTable(data.data);
-            } else {
-                console.error('Erreur lors du chargement des derniers scans:', data.message);
-                showNotification(`Erreur: ${data.message || 'Erreur inconnue'}`, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur lors du chargement des derniers scans', 'error');
-        });
-}
-
-/**
- * Mise à jour du tableau des derniers scans
- */
-function updateLatestScansTable(scans) {
-    if (!Array.isArray(scans)) {
-        console.error('Format de données invalide pour les derniers scans');
-        return;
     }
     
-    const tableBody = document.querySelector('#latest-scans-table tbody');
-    
-    if (!tableBody) {
-        console.warn('Table body des derniers scans non trouvé');
-        return;
+    /**
+     * Chargement des derniers scans pour toutes les catégories
+     */
+    function loadLatestScans() {
+        fetch(`${API_BASE_URL}/scans?limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateLatestScansTable(data.data);
+                } else {
+                    console.error('Erreur lors du chargement des derniers scans:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la requête API:', error);
+                showNotification('Erreur lors du chargement des derniers scans', 'error');
+            });
     }
     
-    try {
-        // Vider la table
-        tableBody.innerHTML = '';
+    /**
+     * Mise à jour du tableau des derniers scans
+     */
+    function updateLatestScansTable(scans) {
+        const tableBody = document.querySelector('#latest-scans-table tbody');
         
-        // Si pas de scans, afficher un message
-        if (scans.length === 0) {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="9" class="text-center">Aucun scan récent trouvé</td>`;
-            tableBody.appendChild(row);
+        if (!tableBody) {
+            console.warn('Table body des derniers scans non trouvé');
             return;
         }
+        
+        // Vider la table
+        tableBody.innerHTML = '';
         
         // Remplir avec les nouvelles données
         scans.forEach(scan => {
             const row = document.createElement('tr');
             
             // Définir la classe de statut
-            if (scan.scan_status) {
-                row.classList.add(`status-${scan.scan_status}`);
-            }
-            
-            // Vérifier et convertir les valeurs numériques
-            const totalIssues = parseInt(scan.total_issues) || 0;
-            const highSeverity = parseInt(scan.high_severity_count) || 0;
-            const mediumSeverity = parseInt(scan.medium_severity_count) || 0;
-            const lowSeverity = parseInt(scan.low_severity_count) || 0;
+            row.classList.add(`status-${scan.scan_status}`);
             
             row.innerHTML = `
                 <td>${formatDate(scan.scan_date)}</td>
                 <td>${formatToolName(scan.tool_name)}</td>
-                <td>${scan.target_name || 'N/A'}</td>
-                <td><span class="badge status-${scan.scan_status || 'unknown'}">${formatScanStatus(scan.scan_status)}</span></td>
-                <td>${totalIssues}</td>
-                <td>${highSeverity}</td>
-                <td>${mediumSeverity}</td>
-                <td>${lowSeverity}</td>
+                <td>${scan.target_name}</td>
+                <td><span class="badge status-${scan.scan_status}">${formatScanStatus(scan.scan_status)}</span></td>
+                <td>${scan.total_issues}</td>
+                <td>${scan.high_severity_count}</td>
+                <td>${scan.medium_severity_count}</td>
+                <td>${scan.low_severity_count}</td>
                 <td>
                     <button class="btn btn-sm btn-info" onclick="viewScanDetails(${scan.id})">
                         <i class="fas fa-info-circle"></i>
@@ -1335,158 +1148,120 @@ function updateLatestScansTable(scans) {
             
             tableBody.appendChild(row);
         });
-    } catch (error) {
-        console.error('Erreur lors de la mise à jour de la table des derniers scans:', error);
-        showNotification('Erreur lors de l\'affichage des derniers scans', 'error');
-    }
-}
-
-/**
- * Affichage des détails d'un scan
- */
-function viewScanDetails(id) {
-    if (!id) {
-        console.error('ID de scan manquant');
-        return;
     }
     
-    fetch(`${API_BASE_URL}/scans/${id}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                showScanModal(data.data);
-            } else {
-                console.error('Erreur lors du chargement des détails du scan:', data.message);
-                showNotification('Erreur lors du chargement des détails', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur de connexion au serveur', 'error');
-        });
-}
-
-/**
- * Affichage d'une modal avec les détails d'un scan
- */
-function showScanModal(scan) {
-    if (!scan || !scan.id) {
-        console.error('Données de scan invalides');
-        return;
+    /**
+     * Affichage des détails d'un scan
+     */
+    function viewScanDetails(id) {
+        fetch(`${API_BASE_URL}/scans/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showScanModal(data.data);
+                } else {
+                    console.error('Erreur lors du chargement des détails du scan:', data.message);
+                    showNotification('Erreur lors du chargement des détails', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la requête API:', error);
+                showNotification('Erreur de connexion au serveur', 'error');
+            });
     }
     
-    // Créer ou récupérer la modal
-    let modal = getElement('scan-modal');
-    
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'scan-modal';
-        modal.className = 'modal';
-        document.body.appendChild(modal);
-    }
-    
-    // Contenu de la modal
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Détails du scan : ${scan.target_name || 'N/A'}</h2>
-                <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="scan-details">
-                    <p><strong>Date:</strong> ${formatDate(scan.scan_date)}</p>
-                    <p><strong>Outil:</strong> ${formatToolName(scan.tool_name)}</p>
-                    <p><strong>Statut:</strong> <span class="badge status-${scan.scan_status || 'unknown'}">${formatScanStatus(scan.scan_status)}</span></p>
-                    <p><strong>Total des problèmes:</strong> ${scan.total_issues || 0}</p>
-                    <p><strong>Problèmes critiques/élevés:</strong> ${scan.high_severity_count || 0}</p>
-                    <p><strong>Problèmes moyens:</strong> ${scan.medium_severity_count || 0}</p>
-                    <p><strong>Problèmes faibles:</strong> ${scan.low_severity_count || 0}</p>
-                    <p><strong>ID d'exécution:</strong> ${scan.pipeline_run_id || 'N/A'}</p>
+    /**
+     * Affichage d'une modal avec les détails d'un scan
+     */
+    function showScanModal(scan) {
+        // Créer ou récupérer la modal
+        let modal = document.getElementById('scan-modal');
+        
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'scan-modal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
+        }
+        
+        // Contenu de la modal
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Détails du scan : ${scan.target_name}</h2>
+                    <span class="close-modal">&times;</span>
                 </div>
-                
-                <div class="mt-2">
-                    <button class="btn btn-primary" onclick="showScanVulnerabilities(${scan.id})">Voir les vulnérabilités</button>
-                    <button class="btn btn-info" onclick="exportScanReport(${scan.id})">Exporter le rapport</button>
+                <div class="modal-body">
+                    <div class="scan-details">
+                        <p><strong>Date:</strong> ${formatDate(scan.scan_date)}</p>
+                        <p><strong>Outil:</strong> ${formatToolName(scan.tool_name)}</p>
+                        <p><strong>Statut:</strong> <span class="badge status-${scan.scan_status}">${formatScanStatus(scan.scan_status)}</span></p>
+                        <p><strong>Total des problèmes:</strong> ${scan.total_issues}</p>
+                        <p><strong>Problèmes critiques/élevés:</strong> ${scan.high_severity_count}</p>
+                        <p><strong>Problèmes moyens:</strong> ${scan.medium_severity_count}</p>
+                        <p><strong>Problèmes faibles:</strong> ${scan.low_severity_count}</p>
+                        <p><strong>ID d'exécution:</strong> ${scan.pipeline_run_id || 'N/A'}</p>
+                    </div>
+                    
+                    <div class="mt-2">
+                        <button class="btn btn-primary" onclick="showScanVulnerabilities(${scan.id})">Voir les vulnérabilités</button>
+                        <button class="btn btn-info" onclick="exportScanReport(${scan.id})">Exporter le rapport</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-    
-    // Afficher la modal
-    modal.style.display = 'block';
-    
-    // Gestion de la fermeture
-    const closeBtn = modal.querySelector('.close-modal');
-    if (closeBtn) {
+        `;
+        
+        // Afficher la modal
+        modal.style.display = 'block';
+        
+        // Gestion de la fermeture
+        const closeBtn = modal.querySelector('.close-modal');
         closeBtn.onclick = function() {
             modal.style.display = 'none';
         };
-    }
-    
-    // Fermer si on clique en dehors de la modal
-    window.onclick = function(event) {
-        if (event.target === modal) {
-            modal.style.display = 'none';
-        }
-    };
-}
-
-/**
- * Affiche les vulnérabilités liées à un scan
- */
-function showScanVulnerabilities(scanId) {
-    if (!scanId) {
-        console.error('ID de scan manquant');
-        return;
-    }
-    
-    fetch(`${API_BASE_URL}/vulnerabilities?scan_id=${scanId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+        
+        // Fermer si on clique en dehors de la modal
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                // Fermer la modal actuelle
-                const scanModal = getElement('scan-modal');
-                if (scanModal) {
-                    scanModal.style.display = 'none';
-                }
-                
-                // Créer une nouvelle modal pour les vulnérabilités
-                let modal = getElement('vulnerabilities-list-modal');
-                
-                if (!modal) {
-                    modal = document.createElement('div');
-                    modal.id = 'vulnerabilities-list-modal';
-                    modal.className = 'modal';
-                    document.body.appendChild(modal);
-                }
-                
-                // Vérifier si des vulnérabilités sont disponibles
-                const vulnerabilities = Array.isArray(data.data) ? data.data : [];
-                
-                // Générer le HTML pour la liste des vulnérabilités
-                let vulnerabilitiesHTML = '';
-                
-                if (vulnerabilities.length === 0) {
-                    vulnerabilitiesHTML = '<tr><td colspan="6" class="text-center">Aucune vulnérabilité trouvée pour ce scan</td></tr>';
-                } else {
-                    vulnerabilities.forEach(vuln => {
+        };
+    }
+    
+    /**
+     * Affiche les vulnérabilités liées à un scan
+     */
+    function showScanVulnerabilities(scanId) {
+        fetch(`${API_BASE_URL}/vulnerabilities?scan_id=${scanId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Fermer la modal actuelle
+                    const scanModal = document.getElementById('scan-modal');
+                    if (scanModal) {
+                        scanModal.style.display = 'none';
+                    }
+                    
+                    // Créer une nouvelle modal pour les vulnérabilités
+                    let modal = document.getElementById('vulnerabilities-list-modal');
+                    
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'vulnerabilities-list-modal';
+                        modal.className = 'modal';
+                        document.body.appendChild(modal);
+                    }
+                    
+                    // Générer le HTML pour la liste des vulnérabilités
+                    let vulnerabilitiesHTML = '';
+                    data.data.forEach(vuln => {
                         vulnerabilitiesHTML += `
-                            <tr class="severity-${vuln.severity || 'unknown'}">
-                                <td>${vuln.title || 'N/A'}</td>
-                                <td><span class="badge severity-${vuln.severity || 'unknown'}">${formatSeverity(vuln.severity)}</span></td>
+                            <tr class="severity-${vuln.severity}">
+                                <td>${vuln.title}</td>
+                                <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
                                 <td>${vuln.location || 'N/A'}</td>
                                 <td>${vuln.category || 'N/A'}</td>
-                                <td><span class="badge status-${vuln.status || 'unknown'}">${formatStatus(vuln.status)}</span></td>
+                                <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
                                 <td>
                                     <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
                                         <i class="fas fa-info-circle"></i>
@@ -1495,83 +1270,74 @@ function showScanVulnerabilities(scanId) {
                             </tr>
                         `;
                     });
-                }
-                
-                // Contenu de la modal
-                modal.innerHTML = `
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h2>Vulnérabilités du scan</h2>
-                            <span class="close-modal">&times;</span>
-                        </div>
-                        <div class="modal-body">
-                            <div class="table-container">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Titre</th>
-                                            <th>Sévérité</th>
-                                            <th>Emplacement</th>
-                                            <th>Catégorie</th>
-                                            <th>Statut</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${vulnerabilitiesHTML}
-                                    </tbody>
-                                </table>
+                    
+                    // Contenu de la modal
+                    modal.innerHTML = `
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2>Vulnérabilités du scan</h2>
+                                <span class="close-modal">&times;</span>
+                            </div>
+                            <div class="modal-body">
+                                <div class="table-container">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Titre</th>
+                                                <th>Sévérité</th>
+                                                <th>Emplacement</th>
+                                                <th>Catégorie</th>
+                                                <th>Statut</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${vulnerabilitiesHTML}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
-                
-                // Afficher la modal
-                modal.style.display = 'block';
-                
-                // Gestion de la fermeture
-                const closeBtn = modal.querySelector('.close-modal');
-                if (closeBtn) {
+                    `;
+                    
+                    // Afficher la modal
+                    modal.style.display = 'block';
+                    
+                    // Gestion de la fermeture
+                    const closeBtn = modal.querySelector('.close-modal');
                     closeBtn.onclick = function() {
                         modal.style.display = 'none';
                     };
+                    
+                    // Fermer si on clique en dehors de la modal
+                    window.onclick = function(event) {
+                        if (event.target === modal) {
+                            modal.style.display = 'none';
+                        }
+                    };
+                } else {
+                    console.error('Erreur lors du chargement des vulnérabilités:', data.message);
+                    showNotification('Erreur lors du chargement des vulnérabilités', 'error');
                 }
-                
-                // Fermer si on clique en dehors de la modal
-                window.onclick = function(event) {
-                    if (event.target === modal) {
-                        modal.style.display = 'none';
-                    }
-                };
-            } else {
-                console.error('Erreur lors du chargement des vulnérabilités:', data.message);
-                showNotification('Erreur lors du chargement des vulnérabilités', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur de connexion au serveur', 'error');
-        });
-}
-
-/**
- * Exporte le rapport d'un scan
- */
-function exportScanReport(scanId) {
-    if (!scanId) {
-        console.error('ID de scan manquant');
-        return;
+            })
+            .catch(error => {
+                console.error('Erreur lors de la requête API:', error);
+                showNotification('Erreur de connexion au serveur', 'error');
+            });
     }
     
-    fetch(`${API_BASE_URL}/scans/${scanId}/export`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Échec de l\'exportation');
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            try {
+    /**
+     * Exporte le rapport d'un scan
+     */
+    function exportScanReport(scanId) {
+        fetch(`${API_BASE_URL}/scans/${scanId}/export`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Échec de l\'exportation');
+                }
+                return response.blob();
+            })
+            .then(blob => {
                 // Créer un lien pour le téléchargement
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1581,27 +1347,19 @@ function exportScanReport(scanId) {
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
                 
                 showNotification('Rapport exporté avec succès', 'success');
-            } catch (error) {
-                console.error('Erreur lors de la création du lien de téléchargement:', error);
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'exportation du rapport:', error);
                 showNotification('Erreur lors de l\'exportation du rapport', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de l\'exportation du rapport:', error);
-            showNotification('Erreur lors de l\'exportation du rapport', 'error');
-        });
-}
-
-/**
- * Affichage d'une notification
- */
-function showNotification(message, type = 'info') {
-    if (!message) return;
+            });
+    }
     
-    try {
+    /**
+     * Affichage d'une notification
+     */
+    function showNotification(message, type = 'info') {
         // Créer l'élément de notification
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -1611,7 +1369,7 @@ function showNotification(message, type = 'info') {
         `;
         
         // Ajouter au conteneur de notifications
-        const container = getElement('notification-container');
+        const container = document.getElementById('notification-container');
         if (!container) {
             // Créer le conteneur s'il n'existe pas
             const newContainer = document.createElement('div');
@@ -1624,11 +1382,9 @@ function showNotification(message, type = 'info') {
         
         // Gérer la fermeture
         const closeBtn = notification.querySelector('.notification-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function() {
-                notification.remove();
-            });
-        }
+        closeBtn.addEventListener('click', function() {
+            notification.remove();
+        });
         
         // Disparaître après 5 secondes
         setTimeout(() => {
@@ -1637,25 +1393,21 @@ function showNotification(message, type = 'info') {
                 notification.remove();
             }, 500);
         }, 5000);
-    } catch (error) {
-        console.error('Erreur lors de l\'affichage de la notification:', error);
     }
-}
-
-/**
- * Génère et télécharge un rapport général du dashboard
- */
-function downloadDashboardReport() {
-    const date = new Date().toLocaleDateString();
-    const title = 'Rapport de sécurité global - ' + date;
     
-    try {
+    /**
+     * Génère et télécharge un rapport général du dashboard
+     */
+    function downloadDashboardReport() {
+        const date = new Date().toLocaleDateString();
+        const title = 'Rapport de sécurité global - ' + date;
+        
         // Récupérer les statistiques globales
-        const vulnsCount = getElement('total-vulns')?.textContent || '0';
-        const criticalCount = getElement('critical-vulns')?.textContent || '0';
-        const highCount = getElement('high-vulns')?.textContent || '0';
-        const mediumCount = getElement('medium-vulns')?.textContent || '0';
-        const lowCount = getElement('low-vulns')?.textContent || '0';
+        const vulnsCount = document.getElementById('total-vulns')?.textContent || '0';
+        const criticalCount = document.getElementById('critical-vulns')?.textContent || '0';
+        const highCount = document.getElementById('high-vulns')?.textContent || '0';
+        const mediumCount = document.getElementById('medium-vulns')?.textContent || '0';
+        const lowCount = document.getElementById('low-vulns')?.textContent || '0';
         
         // Créer un contenu HTML pour le rapport
         let reportContent = `
@@ -1774,486 +1526,308 @@ function downloadDashboardReport() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        showNotification('Rapport téléchargé avec succès', 'success');
-    } catch (error) {
-        console.error('Erreur lors de la génération du rapport:', error);
-        showNotification('Erreur lors de la génération du rapport', 'error');
     }
-}
-
-// Ajouter un gestionnaire d'événement pour le bouton de téléchargement
-document.addEventListener('DOMContentLoaded', function() {
-    const downloadButton = getElement('download-report');
-    if (downloadButton) {
-        downloadButton.addEventListener('click', function() {
-            downloadDashboardReport();
-        });
-    }
-});
-
-// ZAP Page Functions
-let zapDataLoaded = false;
-
-/**
- * Chargement des données ZAP
- */
-function loadZapData() {
-    try {
-        // D'abord essayer de charger depuis l'API
-        fetch(`${API_BASE_URL}/zap/report`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                processZapData(data);
-                zapDataLoaded = true;
-            })
-            .catch(error => {
-                console.warn("Erreur lors du chargement des données ZAP depuis l'API:", error);
-                
-                // Vérifier s'il y a des données dans une balise script
-                const jsonElement = getElement('zap-data');
-                if (jsonElement && jsonElement.textContent) {
-                    try {
-                        const parsedData = JSON.parse(jsonElement.textContent);
-                        processZapData(parsedData);
-                        zapDataLoaded = true;
-                    } catch (parseError) {
-                        console.error("Erreur lors du parsing des données ZAP:", parseError);
-                        // En cas d'échec, charger les données de démonstration
-                        loadZapDemoData();
-                    }
-                } else {
-                    // Si pas de données disponibles, utiliser les données de démonstration
-                    loadZapDemoData();
-                }
+    
+    // Ajouter un gestionnaire d'événement pour le bouton de téléchargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const downloadButton = document.getElementById('download-report');
+        if (downloadButton) {
+            downloadButton.addEventListener('click', function() {
+                downloadDashboardReport();
             });
-    } catch (e) {
-        console.error("Erreur lors du traitement des données ZAP:", e);
-        showNotification("Erreur lors du chargement des données ZAP", "error");
-        zapDataLoaded = false;
-    }
-}
-
-/**
- * Chargement des données de démonstration pour ZAP
- */
-function loadZapDemoData() {
-    // Données de démonstration pour ZAP
-    const zapData = {
-        "@programName": "ZAP",
-        "@version": "2.16.0",
-        "@generated": "Wed, 23 Apr 2025 14:45:54",
-        "site": [ 
-            {
-                "@name": "http://192.168.231.128:8080",
-                "@host": "192.168.231.128",
-                "@port": "8080",
-                "@ssl": "false",
-                "alerts": [
-                    {
-                        "pluginid": "10016",
-                        "alertRef": "10016",
-                        "alert": "Web Browser XSS Protection Not Enabled",
-                        "name": "Web Browser XSS Protection Not Enabled",
-                        "riskcode": "1",
-                        "confidence": "2",
-                        "riskdesc": "Low (Medium)",
-                        "desc": "Web Browser XSS Protection is not enabled, or is disabled by the configuration of the 'X-XSS-Protection' HTTP response header on the web server",
-                        "instances": [
-                            {
-                                "uri": "http://192.168.231.128:8080/login",
-                                "method": "GET",
-                                "param": "",
-                                "attack": "",
-                                "evidence": ""
-                            }
-                        ],
-                        "count": "1",
-                        "solution": "Ensure that the web browser's XSS filter is enabled, by setting the X-XSS-Protection HTTP response header to '1'.",
-                        "otherinfo": "The X-XSS-Protection HTTP response header allows the web server to enable or disable the web browser's XSS protection mechanism.",
-                        "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection",
-                        "cweid": "933",
-                        "wascid": "14",
-                        "sourceid": ""
-                    },
-                    {
-                        "pluginid": "10021",
-                        "alertRef": "10021",
-                        "alert": "X-Content-Type-Options Header Missing",
-                        "name": "X-Content-Type-Options Header Missing",
-                        "riskcode": "1",
-                        "confidence": "2",
-                        "riskdesc": "Low (Medium)",
-                        "desc": "The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'.",
-                        "instances": [
-                            {
-                                "uri": "http://192.168.231.128:8080/assets/js/main.js",
-                                "method": "GET",
-                                "param": "",
-                                "attack": "",
-                                "evidence": ""
-                            }
-                        ],
-                        "count": "3",
-                        "solution": "Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.",
-                        "reference": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/06-Test_for_Content_Security_Policy",
-                        "cweid": "693",
-                        "wascid": "15",
-                        "sourceid": ""
-                    },
-                    {
-                        "pluginid": "10096",
-                        "alertRef": "10096",
-                        "alert": "Timestamp Disclosure",
-                        "name": "Timestamp Disclosure",
-                        "riskcode": "0",
-                        "confidence": "1",
-                        "riskdesc": "Informational (Low)",
-                        "desc": "A timestamp was disclosed by the application/web server.",
-                        "instances": [
-                            {
-                                "uri": "http://192.168.231.128:8080/assets/js/main.js",
-                                "method": "GET",
-                                "param": "",
-                                "attack": "",
-                                "evidence": "20200"
-                            }
-                        ],
-                        "count": "15",
-                        "solution": "Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns.",
-                        "otherinfo": "20200, which appears to be a timestamp, was found in the response body.",
-                        "reference": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage",
-                        "cweid": "200",
-                        "wascid": "13",
-                        "sourceid": ""
-                    }
-                ]
-            }
-        ]
-    };
-    
-    // Traiter les données de démonstration
-    processZapData(zapData);
-    
-    // Afficher une notification pour informer que des données de démonstration sont utilisées
-    showNotification("Utilisation de données de démonstration pour ZAP", "warning");
-    
-    zapDataLoaded = true;
-}
-
-/**
- * Traitement des données ZAP
- */
-function processZapData(data) {
-    if (!data || !data.site || !Array.isArray(data.site) || data.site.length === 0) {
-        console.error("Format de données ZAP invalide");
-        showNotification("Format de données ZAP invalide", "error");
-        return;
-    }
-
-    const site = data.site[0];
-    const alerts = Array.isArray(site.alerts) ? site.alerts : [];
-    
-    if (alerts.length === 0) {
-        console.warn("Aucune alerte ZAP trouvée");
-    }
-    
-    try {
-        updateScanInfo(data, site);
-        updateVulnerabilityCounts(alerts);
-        renderVulnerabilityCharts(alerts);
-        populateVulnerabilityTable(alerts);
-        
-        // Initialiser les gestionnaires d'événements
-        initializeEventHandlers(alerts);
-    } catch (e) {
-        console.error("Erreur lors du traitement des données ZAP:", e);
-        showNotification("Erreur lors du traitement des données ZAP", "error");
-    }
-}
-
-/**
- * Mise à jour des informations du scan ZAP
- */
-function updateScanInfo(data, site) {
-    // Vérifier si les éléments nécessaires existent
-    const pageTitle = document.querySelector('#zap-page .page-title');
-    if (!pageTitle) {
-        console.warn("Élément .page-title non trouvé dans #zap-page");
-        return;
-    }
-    
-    // Mise à jour des informations générales du scan
-    const version = data["@version"] || 'inconnue';
-    pageTitle.innerHTML = `OWASP ZAP - Scanner de vulnérabilités Web <small>(v${version})</small>`;
-    
-    // Ajouter des détails supplémentaires 
-    const existingScanInfo = document.querySelector('#zap-page .scan-info');
-    if (existingScanInfo) {
-        existingScanInfo.remove();
-    }
-    
-    const scanInfoEl = document.createElement('div');
-    scanInfoEl.className = 'scan-info';
-    scanInfoEl.innerHTML = `
-        <p><strong>Site scanné:</strong> ${site["@name"] || 'N/A'}</p>
-        <p><strong>Date du scan:</strong> ${data["@generated"] || 'N/A'}</p>
-    `;
-    
-    // Insérer après le header de la page
-    const pageHeader = document.querySelector('#zap-page .page-header');
-    if (pageHeader) {
-        pageHeader.parentNode.insertBefore(scanInfoEl, pageHeader.nextSibling);
-    } else {
-        const zapPage = getElement('zap-page');
-        if (zapPage) {
-            zapPage.appendChild(scanInfoEl);
         }
-    }
-}
-
-/**
- * Mise à jour des compteurs de vulnérabilités
- */
-function updateVulnerabilityCounts(alerts) {
-    if (!Array.isArray(alerts)) {
-        console.error("Format de données invalide pour les alertes ZAP");
-        return;
-    }
-    
-    // Comptage des vulnérabilités par niveau de sévérité
-    const severityCounts = {
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        info: 0
-    };
-    
-    alerts.forEach(alert => {
-        const riskCode = parseInt(alert.riskcode) || 0;
-        
-        if (riskCode === 3) severityCounts.critical++;
-        else if (riskCode === 2) severityCounts.high++;
-        else if (riskCode === 1) severityCounts.medium++;
-        else if (riskCode === 0) severityCounts.low++;
     });
     
-    // Mise à jour des compteurs s'ils existent
-    const updateElement = (id, value) => {
-        const element = getElement(id);
-        if (element) element.textContent = value;
-    };
+    // ZAP Page Functions
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('zap-page')) {
+            loadZapData();
+        }
+    });
     
-    updateElement('zap-critical-count', severityCounts.critical);
-    updateElement('zap-high-count', severityCounts.high);
-    updateElement('zap-medium-count', severityCounts.medium);
-    updateElement('zap-low-count', severityCounts.low + severityCounts.info);
-}
-
-let zapSeverityChart = null;
-let zapCategoryChart = null;
-
-/**
- * Création des graphiques de vulnérabilités ZAP
- */
-function renderVulnerabilityCharts(alerts) {
-    if (!Array.isArray(alerts)) {
-        console.error("Format de données invalide pour les alertes ZAP");
-        return;
+    let zapDataLoaded = false;
+    
+    function loadZapData() {
+        try {
+            // D'abord essayer de charger depuis l'API
+            fetch(`${API_BASE_URL}/zap/report`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    processZapData(data);
+                    zapDataLoaded = true;
+                })
+                .catch(error => {
+                    console.warn("Erreur lors du chargement des données ZAP depuis l'API:", error);
+                    
+                    // Vérifier s'il y a des données dans une balise script
+                    const jsonElement = document.getElementById('zap-data');
+                    if (jsonElement && jsonElement.textContent) {
+                        try {
+                            const parsedData = JSON.parse(jsonElement.textContent);
+                            processZapData(parsedData);
+                            zapDataLoaded = true;
+                        } catch (parseError) {
+                            console.error("Erreur lors du parsing des données ZAP:", parseError);
+                            // En cas d'échec, charger les données de démonstration
+                            loadZapDemoData();
+                        }
+                    } else {
+                        // Si pas de données disponibles, utiliser les données de démonstration
+                        loadZapDemoData();
+                    }
+                });
+        } catch (e) {
+            console.error("Erreur lors du traitement des données ZAP:", e);
+            showNotification("Erreur lors du chargement des données ZAP", "error");
+            zapDataLoaded = false;
+        }
     }
     
-    // Vérifier si les éléments canvas existent
-    const severityChart = getElement('zap-severity-chart');
-    const categoryChart = getElement('zap-category-chart');
-
-    // Détruire les anciens graphiques s'ils existent
-    if (zapSeverityChart) {
-        zapSeverityChart.destroy();
+    function processZapData(data) {
+        if (!data || !data.site || !data.site[0]) {
+            console.error("Format de données ZAP invalide");
+            return;
+        }
+    
+        const site = data.site[0];
+        const alerts = site.alerts || [];
+        
+        if (alerts.length === 0) {
+            console.warn("Aucune alerte ZAP trouvée");
+        }
+        
+        try {
+            updateScanInfo(data, site);
+            updateVulnerabilityCounts(alerts);
+            renderVulnerabilityCharts(alerts);
+            populateVulnerabilityTable(alerts);
+            
+            // Initialiser les gestionnaires d'événements
+            initializeEventHandlers(alerts);
+        } catch (e) {
+            console.error("Erreur lors du traitement des données ZAP:", e);
+            showNotification("Erreur lors du traitement des données ZAP", "error");
+        }
     }
-
-    if (zapCategoryChart) {
-        zapCategoryChart.destroy();
+    
+    function updateScanInfo(data, site) {
+        // Vérifier si les éléments nécessaires existent
+        const pageTitle = document.querySelector('#zap-page .page-title');
+        if (!pageTitle) {
+            console.warn("Élément .page-title non trouvé dans #zap-page");
+            return;
+        }
+        
+        // Mise à jour des informations générales du scan
+        pageTitle.innerHTML = `OWASP ZAP - Scanner de vulnérabilités Web <small>(v${data["@version"]})</small>`;
+        
+        // Ajouter des détails supplémentaires 
+        const existingScanInfo = document.querySelector('#zap-page .scan-info');
+        if (existingScanInfo) {
+            existingScanInfo.remove();
+        }
+        
+        const scanInfoEl = document.createElement('div');
+        scanInfoEl.className = 'scan-info';
+        scanInfoEl.innerHTML = `
+            <p><strong>Site scanné:</strong> ${site["@name"]}</p>
+            <p><strong>Date du scan:</strong> ${data["@generated"]}</p>
+        `;
+        
+        // Insérer après le header de la page
+        const pageHeader = document.querySelector('#zap-page .page-header');
+        if (pageHeader) {
+            pageHeader.parentNode.insertBefore(scanInfoEl, pageHeader.nextSibling);
+        } else {
+            const zapPage = document.getElementById('zap-page');
+            if (zapPage) {
+                zapPage.appendChild(scanInfoEl);
+            }
+        }
     }
-
-    if (!severityChart || !categoryChart) {
-        console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
-        return;
+    
+    function updateVulnerabilityCounts(alerts) {
+        // Comptage des vulnérabilités par niveau de sévérité
+        const severityCounts = {
+            critical: 0,
+            high: 0,
+            medium: 0,
+            low: 0,
+            info: 0
+        };
+        
+        alerts.forEach(alert => {
+            const riskCode = parseInt(alert.riskcode);
+            
+            if (riskCode === 3) severityCounts.critical++;
+            else if (riskCode === 2) severityCounts.high++;
+            else if (riskCode === 1) severityCounts.medium++;
+            else if (riskCode === 0) severityCounts.low++;
+        });
+        
+        // Mise à jour des compteurs s'ils existent
+        const updateElement = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value;
+        };
+        
+        updateElement('zap-critical-count', severityCounts.critical);
+        updateElement('zap-high-count', severityCounts.high);
+        updateElement('zap-medium-count', severityCounts.medium);
+        updateElement('zap-low-count', severityCounts.low + severityCounts.info);
     }
-
-    try {
+    
+    let zapSeverityChart = null;
+    let zapCategoryChart = null;
+    
+    function renderVulnerabilityCharts(alerts) {
+        // Vérifier si les éléments canvas existent
+        const severityChart = document.getElementById('zap-severity-chart');
+        const categoryChart = document.getElementById('zap-category-chart');
+    
+        // Détruire les anciens graphiques s'ils existent
+        if (zapSeverityChart) {
+            zapSeverityChart.destroy();
+        }
+    
+        if (zapCategoryChart) {
+            zapCategoryChart.destroy();
+        }
+    
+        if (!severityChart || !categoryChart) {
+            console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
+            return;
+        }
+    
         // Préparer les données pour les graphiques
         const severityCounts = [0, 0, 0, 0]; // Critical, High, Medium, Low/Info
         const categoryCounts = {};
-
+    
         alerts.forEach(alert => {
-            const riskCode = parseInt(alert.riskcode) || 0;
-
+            const riskCode = parseInt(alert.riskcode);
+    
             if (riskCode === 3) severityCounts[0]++;
             else if (riskCode === 2) severityCounts[1]++;
             else if (riskCode === 1) severityCounts[2]++;
             else if (riskCode === 0) severityCounts[3]++;
-
+    
             // Compter par catégorie (WASC)
             if (alert.wascid && alert.wascid !== "-1") {
                 const category = `WASC-${alert.wascid}`;
                 categoryCounts[category] = (categoryCounts[category] || 0) + 1;
             }
         });
-
-        // === Graphique de distribution par sévérité ===
-        const severityCtx = severityChart.getContext('2d');
-        if (!severityCtx) {
-            console.warn('Impossible d\'obtenir le contexte 2D pour zap-severity-chart');
-            return;
-        }
-        
-        zapSeverityChart = new Chart(severityCtx, {
-            type: 'pie',
-            data: {
-                labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
-                datasets: [{
-                    data: severityCounts,
-                    backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: darkMode ? '#ffffff' : '#333333'
-                        }
-                    }
-                }
-            }
-        });
-
-        // === Graphique de distribution par catégorie ===
-        const categoryLabels = Object.keys(categoryCounts);
-        const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
-
-        const categoryCtx = categoryChart.getContext('2d');
-        if (!categoryCtx) {
-            console.warn('Impossible d\'obtenir le contexte 2D pour zap-category-chart');
-            return;
-        }
-        
-        zapCategoryChart = new Chart(categoryCtx, {
-            type: 'bar',
-            data: {
-                labels: categoryLabels,
-                datasets: [{
-                    label: 'Nombre de vulnérabilités',
-                    data: categoryData,
-                    backgroundColor: '#4e73df'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+    
+        try {
+            // === Graphique de distribution par sévérité ===
+            const severityCtx = severityChart.getContext('2d');
+            zapSeverityChart = new Chart(severityCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
+                    datasets: [{
+                        data: severityCounts,
+                        backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
                         }
                     }
                 }
-            }
-        });
-    } catch (e) {
-        console.error("Erreur lors de la création des graphiques ZAP:", e);
-        showNotification("Erreur lors de la création des graphiques ZAP", "error");
-    }
-}
-
-/**
- * Remplissage du tableau des vulnérabilités ZAP
- */
-function populateVulnerabilityTable(alerts) {
-    if (!Array.isArray(alerts)) {
-        console.error("Format de données invalide pour les alertes ZAP");
-        return;
+            });
+    
+            // === Graphique de distribution par catégorie ===
+            const categoryLabels = Object.keys(categoryCounts);
+            const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
+    
+            const categoryCtx = categoryChart.getContext('2d');
+            zapCategoryChart = new Chart(categoryCtx, {
+                type: 'bar',
+                data: {
+                    labels: categoryLabels,
+                    datasets: [{
+                        label: 'Nombre de vulnérabilités',
+                        data: categoryData,
+                        backgroundColor: '#4e73df'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+    
+        } catch (e) {
+            console.error("Erreur lors de la création des graphiques ZAP:", e);
+        }
     }
     
-    const tableBody = getElement('zap-vulnerabilities-table-body');
-    if (!tableBody) {
-        console.warn("Élément #zap-vulnerabilities-table-body non trouvé");
-        return;
-    }
-    
-    try {
+    function populateVulnerabilityTable(alerts) {
+        const tableBody = document.getElementById('zap-vulnerabilities-table-body');
+        if (!tableBody) {
+            console.warn("Élément #zap-vulnerabilities-table-body non trouvé");
+            return;
+        }
+        
         // Vider la table
         tableBody.innerHTML = '';
-        
-        // Si pas d'alertes, afficher un message
-        if (alerts.length === 0) {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="6" class="text-center">Aucune vulnérabilité trouvée</td>`;
-            tableBody.appendChild(row);
-            return;
-        }
         
         // Remplir avec les nouvelles données
         alerts.forEach((alert, index) => {
             const row = document.createElement('tr');
             
             // Déterminer la classe CSS basée sur la sévérité
-            let severityClass = 'info';
-            let severityText = 'Info';
+            let severityClass = '';
+            let severityText = '';
             
-            // Convertir explicitement en nombre et vérifier la valeur
-            const riskCode = parseInt(alert.riskcode);
-            
-            if (!isNaN(riskCode)) {
-                switch(riskCode) {
-                    case 3:
-                        severityClass = 'critical';
-                        severityText = 'Critique';
-                        break;
-                    case 2:
-                        severityClass = 'high';
-                        severityText = 'Élevée';
-                        break;
-                    case 1:
-                        severityClass = 'medium';
-                        severityText = 'Moyenne';
-                        break;
-                    case 0:
-                        severityClass = 'low';
-                        severityText = 'Faible';
-                        break;
-                }
-            }
-            
-            // Convertir le niveau de confiance
-            let confidenceText = 'Inconnue';
-            const confidence = parseInt(alert.confidence);
-            if (!isNaN(confidence)) {
-                if (confidence === 3) confidenceText = "Haute";
-                else if (confidence === 2) confidenceText = "Moyenne";
-                else if (confidence === 1) confidenceText = "Faible";
+            switch(alert.riskcode) {
+                case "3":
+                    severityClass = 'critical';
+                    severityText = 'Critique';
+                    break;
+                case "2":
+                    severityClass = 'medium';
+                    severityText = 'Moyenne';
+                    break;
+                case "1":
+                    severityClass = 'low';
+                    severityText = 'Faible';
+                    break;
+                case "0":
+                    severityClass = 'info';
+                    severityText = 'Info';
+                    break;
             }
             
             row.innerHTML = `
-                <td>${alert.name || 'N/A'}</td>
+                <td>${alert.name}</td>
                 <td><span class="badge badge-${severityClass}">${severityText}</span></td>
-                <td>${confidenceText}</td>
-                <td>${alert.count || '0'}</td>
-                <td>${(alert.cweid && alert.cweid !== "-1") ? alert.cweid : "N/A"}</td>
+                <td>${alert.confidence === "3" ? "Haute" : alert.confidence === "2" ? "Moyenne" : "Faible"}</td>
+                <td>${alert.count}</td>
+                <td>${alert.cweid !== "-1" ? alert.cweid : "N/A"}</td>
                 <td>
                     <button class="btn btn-sm btn-primary view-details" data-alert-index="${index}">
                         <i class="fas fa-eye"></i>
@@ -2263,17 +1837,9 @@ function populateVulnerabilityTable(alerts) {
             
             tableBody.appendChild(row);
         });
-    } catch (error) {
-        console.error('Erreur lors du remplissage du tableau des vulnérabilités ZAP:', error);
-        showNotification('Erreur lors de l\'affichage des vulnérabilités ZAP', 'error');
     }
-}
-
-/**
- * Initialisation des gestionnaires d'événements pour ZAP
- */
-function initializeEventHandlers(alerts) {
-    try {
+    
+    function initializeEventHandlers(alerts) {
         // Gestion des boutons de détails
         const detailButtons = document.querySelectorAll('.view-details');
         if (detailButtons.length > 0) {
@@ -2288,7 +1854,7 @@ function initializeEventHandlers(alerts) {
         }
         
         // Gestion du filtre de sévérité
-        const severityFilter = getElement('zap-severity-filter');
+        const severityFilter = document.getElementById('zap-severity-filter');
         if (severityFilter) {
             severityFilter.addEventListener('change', function() {
                 filterVulnerabilityTable(alerts);
@@ -2296,7 +1862,7 @@ function initializeEventHandlers(alerts) {
         }
         
         // Gestion du filtre de statut
-        const statusFilter = getElement('zap-status-filter');
+        const statusFilter = document.getElementById('zap-status-filter');
         if (statusFilter) {
             statusFilter.addEventListener('change', function() {
                 filterVulnerabilityTable(alerts);
@@ -2304,101 +1870,72 @@ function initializeEventHandlers(alerts) {
         }
         
         // Fermeture de la modal si elle existe
-        const zapAlertModal = getElement('zap-alert-modal');
-        if (zapAlertModal) {
-            const modalCloseBtn = zapAlertModal.querySelector('.close-modal');
-            if (modalCloseBtn) {
-                modalCloseBtn.addEventListener('click', function() {
-                    zapAlertModal.style.display = 'none';
-                });
-            }
-            
-            // Fermer si on clique en dehors de la modal
-            window.addEventListener('click', function(event) {
-                if (event.target === zapAlertModal) {
-                    zapAlertModal.style.display = 'none';
-                }
+        const modalCloseBtn = document.querySelector('#zap-alert-modal .close-modal');
+        if (modalCloseBtn) {
+            modalCloseBtn.addEventListener('click', function() {
+                const modal = document.getElementById('zap-alert-modal');
+                if (modal) modal.style.display = 'none';
             });
         }
         
         // Export CSV
-        const exportBtn = getElement('export-zap-csv');
+        const exportBtn = document.getElementById('export-zap-csv');
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
                 exportToCSV(alerts);
             });
         }
-    } catch (error) {
-        console.error('Erreur lors de l\'initialisation des gestionnaires d\'événements ZAP:', error);
-    }
-}
-
-/**
- * Affichage des détails d'une alerte ZAP
- */
-function showAlertDetails(alert) {
-    if (!alert) {
-        console.error('Données d\'alerte invalides');
-        return;
     }
     
-    const modal = getElement('zap-alert-modal');
-    if (!modal) {
-        console.warn("Modal #zap-alert-modal non trouvée");
-        return;
-    }
-    
-    const modalBody = getElement('zap-alert-details');
-    if (!modalBody) {
-        console.warn("Élément #zap-alert-details non trouvé");
-        return;
-    }
-    
-    try {
+    function showAlertDetails(alert) {
+        const modal = document.getElementById('zap-alert-modal');
+        if (!modal) {
+            console.warn("Modal #zap-alert-modal non trouvée");
+            return;
+        }
+        
+        const modalBody = document.getElementById('zap-alert-details');
+        if (!modalBody) {
+            console.warn("Élément #zap-alert-details non trouvé");
+            return;
+        }
+        
         // Formater les instances pour l'affichage
         let instancesHtml = '';
-        if (Array.isArray(alert.instances) && alert.instances.length > 0) {
+        if (alert.instances && alert.instances.length > 0) {
             instancesHtml = '<h3>Instances</h3><ul>';
             alert.instances.forEach(instance => {
                 instancesHtml += `
                     <li>
-                        <strong>URL:</strong> ${instance.uri || 'N/A'}<br>
-                        <strong>Méthode:</strong> ${instance.method || 'N/A'}<br>
+                        <strong>URL:</strong> ${instance.uri}<br>
+                        <strong>Méthode:</strong> ${instance.method}<br>
                         ${instance.param ? `<strong>Paramètre:</strong> ${instance.param}<br>` : ''}
                         ${instance.attack ? `<strong>Attaque:</strong> ${instance.attack}<br>` : ''}
                         ${instance.evidence ? `<strong>Preuve:</strong> ${instance.evidence}<br>` : ''}
-                    </li>`;
+                    </li>
+                `;
             });
             instancesHtml += '</ul>';
         }
         
-        // Déterminer la classe de sévérité
-        const riskcode = parseInt(alert.riskcode) || 0;
-        const severityClass = getSeverityClass(riskcode);
-        const severityText = getSeverityText(riskcode);
-        
-        // Déterminer le niveau de confiance
-        const confidence = parseInt(alert.confidence) || 0;
-        const confidenceText = getConfidenceText(confidence);
-        
         modalBody.innerHTML = `
             <div class="alert-details">
-                <h2>${alert.name || 'Détail de l\'alerte'}</h2>
+                <h2>${alert.name}</h2>
                 <div class="alert-meta">
-                    <span class="badge badge-${severityClass}">${severityText}</span>
-                    <span class="badge badge-secondary">Confiance: ${confidenceText}</span>
+                    <span class="badge badge-${getSeverityClass(alert.riskcode)}">${getSeverityText(alert.riskcode)}</span>
+                    <span class="badge badge-secondary">Confiance: ${getConfidenceText(alert.confidence)}</span>
                     ${alert.cweid !== "-1" ? `<span class="badge badge-info">CWE-${alert.cweid}</span>` : ''}
                     ${alert.wascid !== "-1" ? `<span class="badge badge-info">WASC-${alert.wascid}</span>` : ''}
                 </div>
                 
                 <div class="alert-section">
                     <h3>Description</h3>
-                    <div>${alert.desc || 'Aucune description disponible'}</div>
+                    <div>${alert.desc}</div>
                 </div>
                 
                 <div class="alert-section">
                     <h3>Solution</h3>
-                    <div>${alert.solution || 'Aucune solution disponible'}</div>
+                    <div>${alert.solution}</div>
                 </div>
                 
                 ${alert.reference ? `
@@ -2413,91 +1950,64 @@ function showAlertDetails(alert) {
         `;
         
         modal.style.display = 'block';
-    } catch (error) {
-        console.error('Erreur lors de l\'affichage des détails de l\'alerte:', error);
-        showNotification('Erreur lors de l\'affichage des détails de l\'alerte', 'error');
-    }
-}
-
-/**
- * Détermine la classe CSS en fonction du code de risque
- */
-function getSeverityClass(riskcode) {
-    switch(riskcode) {
-        case 3: return "critical";
-        case 2: return "high";
-        case 1: return "medium";
-        case 0: return "low";
-        default: return "info";
-    }
-}
-
-/**
- * Détermine le texte de sévérité en fonction du code de risque
- */
-function getSeverityText(riskcode) {
-    switch(riskcode) {
-        case 3: return "Critique";
-        case 2: return "Élevée";
-        case 1: return "Moyenne";
-        case 0: return "Informationnelle";
-        default: return "Inconnue";
-    }
-}
-
-/**
- * Détermine le texte de confiance en fonction du code de confiance
- */
-function getConfidenceText(confidence) {
-    switch(confidence) {
-        case 3: return "Haute";
-        case 2: return "Moyenne";
-        case 1: return "Faible";
-        default: return "Inconnue";
-    }
-}
-
-/**
- * Filtrage du tableau des vulnérabilités ZAP
- */
-function filterVulnerabilityTable(alerts) {
-    if (!Array.isArray(alerts)) {
-        console.error('Format de données invalide pour les alertes ZAP');
-        return;
     }
     
-    const severityFilter = getElement('zap-severity-filter');
-    const statusFilter = getElement('zap-status-filter');
-    
-    if (!severityFilter || !statusFilter) {
-        console.warn("Filtres ZAP non trouvés");
-        return;
+    function getSeverityClass(riskcode) {
+        switch(riskcode) {
+            case "3": return "critical";
+            case "2": return "medium";
+            case "1": return "low";
+            case "0": return "info";
+            default: return "info";
+        }
     }
     
-    try {
+    function getSeverityText(riskcode) {
+        switch(riskcode) {
+            case "3": return "Critique";
+            case "2": return "Moyenne";
+            case "1": return "Faible";
+            case "0": return "Informationnelle";
+            default: return "Inconnue";
+        }
+    }
+    
+    function getConfidenceText(confidence) {
+        switch(confidence) {
+            case "3": return "Haute";
+            case "2": return "Moyenne";
+            case "1": return "Faible";
+            default: return "Inconnue";
+        }
+    }
+    
+    function filterVulnerabilityTable(alerts) {
+        const severityFilter = document.getElementById('zap-severity-filter');
+        const statusFilter = document.getElementById('zap-status-filter');
+        
+        if (!severityFilter || !statusFilter) {
+            console.warn("Filtres ZAP non trouvés");
+            return;
+        }
+        
         const severityValue = severityFilter.value;
         const statusValue = statusFilter.value;
         
-        // Dans un environnement réel, cette fonction filtrerait le tableau en fonction des valeurs des filtres
-        // Pour cette version simplifiée, on recharge simplement le tableau avec toutes les données
-        populateVulnerabilityTable(alerts);
+        // Dans un environnement réel, cette fonction filtrerait le tableau
+        // Pour cet exemple simplifié, nous rechargerions simplement le tableau
+        // Dans la pratique, il faudrait filtrer côté serveur ou client
         
-        showNotification("Filtrage non implémenté dans cette version", "info");
-    } catch (error) {
-        console.error('Erreur lors du filtrage du tableau des vulnérabilités ZAP:', error);
-    }
-}
-
-/**
- * Exportation des alertes ZAP au format CSV
- */
-function exportToCSV(alerts) {
-    if (!Array.isArray(alerts) || alerts.length === 0) {
-        showNotification("Aucune donnée à exporter", "warning");
-        return;
+        // Mise à jour simulée - dans un environnement réel, il faudrait implémenter 
+        // le filtrage côté client ou envoyer une requête filtrée au serveur
+        populateVulnerabilityTable(alerts);
     }
     
-    try {
+    function exportToCSV(alerts) {
+        if (!alerts || alerts.length === 0) {
+            showNotification("Aucune donnée à exporter", "warning");
+            return;
+        }
+        
         // Création des données CSV
         let csvContent = "data:text/csv;charset=utf-8,";
         
@@ -2506,13 +2016,10 @@ function exportToCSV(alerts) {
         
         // Lignes de données
         alerts.forEach(alert => {
-            const riskcode = parseInt(alert.riskcode) || 0;
-            const confidence = parseInt(alert.confidence) || 0;
-            
             const row = [
                 `"${(alert.name || '').replace(/"/g, '""')}"`,
-                getSeverityText(riskcode),
-                getConfidenceText(confidence),
+                getSeverityText(alert.riskcode),
+                getConfidenceText(alert.confidence),
                 alert.count || "0",
                 alert.cweid !== "-1" ? alert.cweid : "N/A",
                 alert.wascid !== "-1" ? alert.wascid : "N/A"
@@ -2521,106 +2028,111 @@ function exportToCSV(alerts) {
             csvContent += row.join(",") + "\n";
         });
         
-        // Création du lien de téléchargement
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "zap_vulnerabilities.csv");
-        document.body.appendChild(link);
-        
-        // Déclencher le téléchargement
-        link.click();
-        
-        // Nettoyer
-        document.body.removeChild(link);
-        
-        showNotification("Fichier CSV exporté avec succès", "success");
-    } catch (e) {
-        console.error("Erreur lors de l'exportation CSV:", e);
-        showNotification("Erreur lors de l'exportation CSV", "error");
+        try {
+            // Création du lien de téléchargement
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "zap_vulnerabilities.csv");
+            document.body.appendChild(link);
+            
+            // Déclencher le téléchargement
+            link.click();
+            
+            // Nettoyer
+            document.body.removeChild(link);
+            
+            showNotification("Fichier CSV exporté avec succès", "success");
+        } catch (e) {
+            console.error("Erreur lors de l'exportation CSV:", e);
+            showNotification("Erreur lors de l'exportation CSV", "error");
+        }
     }
-}
-
-/**
- * Fonction utilitaire pour ajouter des données de démonstration 
- * quand l'API n'est pas disponible (pour tests/développement)
- */
-function populateDemoData() {
-    // Exemple de vulnérabilités pour tests
-    const demoVulnerabilities = [
-        {
-            id: 1,
-            title: "SQL Injection in Login Form",
-            severity: "critical",
-            location: "/login.php",
-            category: "Injection",
-            last_detected: "2025-04-20T10:15:30",
-            status: "open"
-        },
-        {
-            id: 2,
-            title: "Cross-Site Scripting (XSS) in Comment Field",
-            severity: "high",
-            location: "/blog/comments.php",
-            category: "XSS",
-            last_detected: "2025-04-19T14:22:45",
-            status: "open"
-        },
-        {
-            id: 3,
-            title: "Insecure Direct Object Reference",
-            severity: "medium",
-            location: "/user/profile.php",
-            category: "Access Control",
-            last_detected: "2025-04-18T09:30:12",
-            status: "fixed"
-        }
-    ];
     
-    // Exemple de scans pour tests
-    const demoScans = [
-        {
-            id: 1,
-            scan_date: "2025-04-20T10:00:00",
-            tool_name: "owasp_zap",
-            target_name: "production-site.com",
-            scan_status: "success",
-            total_issues: 12,
-            high_severity_count: 2,
-            medium_severity_count: 5,
-            low_severity_count: 5
-        },
-        {
-            id: 2,
-            scan_date: "2025-04-19T14:00:00",
-            tool_name: "trivy",
-            target_name: "app-container:latest",
-            scan_status: "warning",
-            total_issues: 8,
-            high_severity_count: 1,
-            medium_severity_count: 3,
-            low_severity_count: 4
-        }
-    ];
-    
-    // Mettre à jour les tableaux avec les données de démonstration si nécessaire
-    // Cette partie serait activée uniquement en mode développement
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        console.info("Mode développement: Chargement des données de démonstration");
-        
-        // Populating vulnerability tables
-        const tablesToPopulate = [
-            'trivy', 'sonarqube', 'zap'
+    // Une fonction utilitaire pour ajouter des données de démonstration 
+    // quand l'API n'est pas disponible (pour tests/développement)
+    function populateDemoData() {
+        // Exemple de vulnérabilités pour tests
+        const demoVulnerabilities = [
+            {
+                id: 1,
+                title: "SQL Injection in Login Form",
+                severity: "critical",
+                location: "/login.php",
+                category: "Injection",
+                last_detected: "2025-04-20T10:15:30",
+                status: "open"
+            },
+            {
+                id: 2,
+                title: "Cross-Site Scripting (XSS) in Comment Field",
+                severity: "high",
+                location: "/blog/comments.php",
+                category: "XSS",
+                last_detected: "2025-04-19T14:22:45",
+                status: "open"
+            },
+            {
+                id: 3,
+                title: "Insecure Direct Object Reference",
+                severity: "medium",
+                location: "/user/profile.php",
+                category: "Access Control",
+                last_detected: "2025-04-18T09:30:12",
+                status: "fixed"
+            }
         ];
         
-        tablesToPopulate.forEach(toolName => {
-            updateVulnerabilitiesTable(demoVulnerabilities, toolName);
-            updateScanHistoryTable(demoScans, toolName);
-        });
+        // Exemple de scans pour tests
+        const demoScans = [
+            {
+                id: 1,
+                scan_date: "2025-04-20T10:00:00",
+                tool_name: "owasp_zap",
+                target_name: "production-site.com",
+                scan_status: "success",
+                total_issues: 12,
+                high_severity_count: 2,
+                medium_severity_count: 5,
+                low_severity_count: 5
+            },
+            {
+                id: 2,
+                scan_date: "2025-04-19T14:00:00",
+                tool_name: "trivy",
+                target_name: "app-container:latest",
+                scan_status: "warning",
+                total_issues: 8,
+                high_severity_count: 1,
+                medium_severity_count: 3,
+                low_severity_count: 4
+            }
+        ];
         
-        // Mise à jour du tableau des derniers scans
-        updateLatestScansTable(demoScans);
-        
-        showNotification("Données de démonstration chargées", "info");
+        // Mettre à jour les tableaux avec les données de démonstration si nécessaire
+        // Cette partie serait activée uniquement en mode développement
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.info("Mode développement: Chargement des données de démonstration");
+            
+            // Populating vulnerability tables
+            const tablesToPopulate = [
+                'trivy', 'sonarqube', 'zap'
+            ];
+            
+            tablesToPopulate.forEach(toolName => {
+                updateVulnerabilitiesTable(demoVulnerabilities, toolName);
+                updateScanHistoryTable(demoScans, toolName);
+            });
+            
+            // Mise à jour du tableau des derniers scans
+            updateLatestScansTable(demoScans);
+        }
     }
-}
+    
+    // Fonction d'initialisation des données de développement
+    // Décommenter pour activer en mode développement
+    // document.addEventListener('DOMContentLoaded', function() {
+    //     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    //         setTimeout(populateDemoData, 1000); // Délai pour simuler le chargement
+    //     }
+    // });
