@@ -207,13 +207,7 @@ function loadVulnerabilityStats(days = 30) {
             showNotification('Erreur de connexion à l\'API. Vérifiez que le serveur est bien en marche.', 'error');
         });
 }
-function getElement(id) {
-    const element = document.getElementById(id);
-    if (!element) {
-        console.warn(`Élément ${id} non trouvé dans le DOM`);
-    }
-    return element;
-}
+
 /**
  * Mise à jour de l'interface avec les statistiques de vulnérabilités
  */
@@ -256,8 +250,7 @@ function updateVulnerabilityStatsUI(stats) {
     if (totalElement) totalElement.textContent = criticalCount + highCount + mediumCount + lowCount;
     
     // Mettre à jour le graphique de répartition s'il existe
-    const chartElement = getElement('vulnerability-distribution-chart');
-    if (chartElement) {
+    if (document.getElementById('vulnerability-distribution-chart')) {
         updateVulnerabilityDistributionChart(criticalCount, highCount, mediumCount, lowCount);
     }
 }
@@ -494,19 +487,19 @@ function initZapPage() {
     zapDataLoaded = false;
     
     // Charger les vulnérabilités de ZAP si la table existe
-    const zapVulnerabilitiesTable = document.querySelector('#zap-vulnerabilities-table-body');
-    if (zapVulnerabilitiesTable) {
+    if (document.querySelector('#zap-vulnerabilities-table-body')) {
         fetchVulnerabilities('zap');
     }
     
     // Charger l'historique des scans ZAP si la table existe
-    const zapHistoryTable = document.querySelector('#zap-history-table-body');
-    if (zapHistoryTable) {
+    if (document.querySelector('#zap-history-table-body')) {
         fetchScanHistory('zap');
     }
     
-    // Charger les données spécifiques à ZAP
-    loadZapData();
+    // Initialiser la partie spécifique à ZAP si la fonction existe
+    if (typeof loadZapData === 'function') {
+        loadZapData();
+    }
 }
 /**
  * Initialisation de la page Selenium
@@ -517,26 +510,7 @@ function initSeleniumPage() {
         fetchScanHistory('selenium');
     }
 }
-function standardizeToolName(toolName, direction = 'toApi') {
-    if (!toolName) return '';
-    
-    const mappings = {
-        'zap': 'owasp_zap',
-        'owasp_zap': 'zap'
-    };
-    
-    if (direction === 'toApi') {
-        // Conversion du nom d'outil du frontend vers l'API
-        return mappings[toolName] || toolName;
-    } else {
-        // Conversion du nom d'outil de l'API vers le frontend
-        const reverseMappings = Object.entries(mappings).reduce((acc, [key, value]) => {
-            acc[value] = key;
-            return acc;
-        }, {});
-        return reverseMappings[toolName] || toolName;
-    }
-}
+
 /**
  * Récupération des vulnérabilités par outil
  */
@@ -1548,43 +1522,117 @@ function fetchScanHistory(toolName, limit = 10) {
     let zapDataLoaded = false;
     
     function loadZapData() {
+        
         try {
-            // D'abord essayer de charger depuis l'API
-            fetch(`${API_BASE_URL}/zap/report`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+            // Dans un environnement réel, ces données seraient récupérées via AJAX
+            // Pour l'exemple, nous utilisons des données de démonstration
+            const zapData = {
+                "@programName": "ZAP",
+                "@version": "2.16.0",
+                "@generated": "Wed, 23 Apr 2025 14:45:54",
+                "site": [ 
+                    {
+                        "@name": "http://192.168.231.128:8080",
+                        "@host": "192.168.231.128",
+                        "@port": "8080",
+                        "@ssl": "false",
+                        "alerts": [
+                            {
+                                "pluginid": "10016",
+                                "alertRef": "10016",
+                                "alert": "Web Browser XSS Protection Not Enabled",
+                                "name": "Web Browser XSS Protection Not Enabled",
+                                "riskcode": "1",
+                                "confidence": "2",
+                                "riskdesc": "Low (Medium)",
+                                "desc": "Web Browser XSS Protection is not enabled, or is disabled by the configuration of the 'X-XSS-Protection' HTTP response header on the web server",
+                                "instances": [
+                                    {
+                                       "uri": "http://192.168.231.128:8080/login",
+                                        "method": "GET",
+                                        "param": "",
+                                        "attack": "",
+                                        "evidence": ""
+                                    }
+                                ],
+                                "count": "1",
+                                "solution": "Ensure that the web browser's XSS filter is enabled, by setting the X-XSS-Protection HTTP response header to '1'.",
+                                "otherinfo": "The X-XSS-Protection HTTP response header allows the web server to enable or disable the web browser's XSS protection mechanism.",
+                                "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection",
+                                "cweid": "933",
+                                "wascid": "14",
+                                "sourceid": ""
+                            },
+                            {
+                                "pluginid": "10021",
+                                "alertRef": "10021",
+                                "alert": "X-Content-Type-Options Header Missing",
+                                "name": "X-Content-Type-Options Header Missing",
+                                "riskcode": "1",
+                                "confidence": "2",
+                                "riskdesc": "Low (Medium)",
+                                "desc": "The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'.",
+                                "instances": [
+                                    {
+                                        "uri": "http://192.168.231.128:8080/assets/js/main.js",
+                                        "method": "GET",
+                                        "param": "",
+                                        "attack": "",
+                                        "evidence": ""
+                                    }
+                                ],
+                                "count": "3",
+                                "solution": "Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.",
+                                "reference": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/06-Test_for_Content_Security_Policy",
+                                "cweid": "693",
+                                "wascid": "15",
+                                "sourceid": ""
+                            },
+                            {
+                                "pluginid": "10096",
+                                "alertRef": "10096",
+                                "alert": "Timestamp Disclosure",
+                                "name": "Timestamp Disclosure",
+                                "riskcode": "0",
+                                "confidence": "1",
+                                "riskdesc": "Informational (Low)",
+                                "desc": "A timestamp was disclosed by the application/web server.",
+                                "instances": [
+                                    {
+                                        "uri": "http://192.168.231.128:8080/assets/js/main.js",
+                                        "method": "GET",
+                                        "param": "",
+                                        "attack": "",
+                                        "evidence": "20200"
+                                    }
+                                ],
+                                "count": "15",
+                                "solution": "Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns.",
+                                "otherinfo": "20200, which appears to be a timestamp, was found in the response body.",
+                                "reference": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage",
+                                "cweid": "200",
+                                "wascid": "13",
+                                "sourceid": ""
+                            }
+                        ]
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    processZapData(data);
-                    zapDataLoaded = true;
-                })
-                .catch(error => {
-                    console.warn("Erreur lors du chargement des données ZAP depuis l'API:", error);
-                    
-                    // Vérifier s'il y a des données dans une balise script
-                    const jsonElement = document.getElementById('zap-data');
-                    if (jsonElement && jsonElement.textContent) {
-                        try {
-                            const parsedData = JSON.parse(jsonElement.textContent);
-                            processZapData(parsedData);
-                            zapDataLoaded = true;
-                        } catch (parseError) {
-                            console.error("Erreur lors du parsing des données ZAP:", parseError);
-                            // En cas d'échec, charger les données de démonstration
-                            loadZapDemoData();
-                        }
-                    } else {
-                        // Si pas de données disponibles, utiliser les données de démonstration
-                        loadZapDemoData();
-                    }
-                });
+                ]
+            };
+    
+            // Récupérer le JSON depuis une balise script si disponible, sinon utiliser les données de démonstration
+            const jsonElement = document.getElementById('zap-data');
+            if (jsonElement && jsonElement.textContent) {
+                const parsedData = JSON.parse(jsonElement.textContent);
+                processZapData(parsedData);
+            } else {
+                // Utiliser les données de démonstration
+                processZapData(zapData);
+            }
+            zapDataLoaded = true;
         } catch (e) {
             console.error("Erreur lors du traitement des données ZAP:", e);
             showNotification("Erreur lors du chargement des données ZAP", "error");
-            zapDataLoaded = false;
+            zapDataLoaded = false; // Réinitialiser le drapeau en cas d'erreur
         }
     }
     
