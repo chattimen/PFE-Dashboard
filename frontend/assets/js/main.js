@@ -483,54 +483,24 @@ function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    console.log("Initialisation de la page ZAP...");
+    // Récupérer la période sélectionnée (si applicable)
+    const periodSelector = document.getElementById('period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) : 30;
     
-    // Étape 1: Vérifier les éléments du DOM
-    const vulnerabilitiesTableBody = document.querySelector('#zap-vulnerabilities-table-body');
-    const historyTableBody = document.querySelector('#zap-history-table-body');
-    
-    console.log("Tables ZAP:", {
-        vulnerabilitiesTable: !!vulnerabilitiesTableBody,
-        historyTable: !!historyTableBody
-    });
-    
-    // Étape 2: Afficher un message de chargement dans les tableaux
-    if (vulnerabilitiesTableBody) {
-        vulnerabilitiesTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Chargement des données...</td></tr>';
+    // Charger les vulnérabilités si le tableau existe
+    if (document.getElementById('zap-vulnerabilities-table')) {
+        fetchVulnerabilities('zap');
     }
     
-    if (historyTableBody) {
-        historyTableBody.innerHTML = '<tr><td colspan="8" class="text-center">Chargement des données...</td></tr>';
+    // Charger l'historique des scans si le tableau existe
+    if (document.getElementById('zap-history-table')) {
+        fetchScanHistory('zap');
     }
     
-    // Étape 3: Charger séquentiellement les données pour éviter les conflits
-    // D'abord charger les données ZAP spécifiques (graphiques, etc.)
+    // Charger les données spécifiques à ZAP (graphiques, etc.)
     if (typeof loadZapData === 'function') {
-        try {
-            loadZapData();
-            console.log("Données ZAP chargées avec succès");
-        } catch (e) {
-            console.error("Erreur dans loadZapData():", e);
-        }
+        loadZapData();
     }
-    
-    // Ensuite charger les vulnérabilités avec un léger délai
-    setTimeout(() => {
-        if (vulnerabilitiesTableBody) {
-            console.log("Chargement des vulnérabilités ZAP...");
-            fetchVulnerabilities('zap');
-        }
-        
-        // Puis charger l'historique avec un autre léger délai
-        setTimeout(() => {
-            if (historyTableBody) {
-                console.log("Chargement de l'historique ZAP...");
-                fetchScanHistory('zap');
-            }
-        }, 500);
-    }, 500);
-    
-    console.log("Initialisation de la page ZAP terminée");
 }
 /**
  * Initialisation de la page Selenium
