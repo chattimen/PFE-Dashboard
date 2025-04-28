@@ -488,12 +488,12 @@ function initZapPage() {
     const days = periodSelector ? parseInt(periodSelector.value) : 30;
     
     // Charger les vulnérabilités si le tableau existe
-    if (document.getElementById('zap-vulnerabilities-table')) {
+    if (document.getElementById('zap-vulnerabilities-table-body')) {
         fetchVulnerabilities('zap');
     }
     
     // Charger l'historique des scans si le tableau existe
-    if (document.getElementById('zap-history-table')) {
+    if (document.getElementById('zap-history-table-body')) {
         fetchScanHistory('zap');
     }
     
