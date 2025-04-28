@@ -6,7 +6,7 @@
 const API_BASE_URL = '/api';
 let currentPage = 'dashboard';
 let darkMode = localStorage.getItem('darkMode') === 'true';
-
+let zapDataLoaded = false;
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
     // Appliquer le thème
@@ -483,8 +483,7 @@ function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    // Forcer le rechargement des données ZAP
-    zapDataLoaded = false;
+
     
     // Charger les vulnérabilités de ZAP si la table existe
     if (document.querySelector('#zap-vulnerabilities-table-body')) {
@@ -540,13 +539,6 @@ function updateVulnerabilitiesTable(vulnerabilities, toolName) {
     const tableId = `${toolName}-vulnerabilities-table`;
     const tableBody = document.querySelector(`#${tableId} tbody`);
     
-    console.log(`updateVulnerabilitiesTable pour ${toolName} :`, {
-        tableId: tableId,
-        tableBodyTrouvé: !!tableBody,
-        nombreDeDonnées: vulnerabilities?.length || 0,
-        données: vulnerabilities
-    });
-    
     if (!tableBody) {
         console.warn(`Table body non trouvé pour ${tableId}`);
         return;
@@ -554,15 +546,6 @@ function updateVulnerabilitiesTable(vulnerabilities, toolName) {
     
     // Vider la table
     tableBody.innerHTML = '';
-    
-    // Ajouter un message si aucune donnée
-    if (!vulnerabilities || vulnerabilities.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7">Aucune donnée disponible</td></tr>';
-        return;
-    }
-    
-    // Reste du code...
-}
     
     // Remplir avec les nouvelles données
     vulnerabilities.forEach(vuln => {
@@ -596,7 +579,7 @@ function updateVulnerabilitiesTable(vulnerabilities, toolName) {
     if (countElement) {
         countElement.textContent = vulnerabilities.length;
     }
-
+}
 
 /**
  * Formatage de la sévérité pour l'affichage
@@ -858,13 +841,6 @@ function fetchScanHistory(toolName, limit = 10) {
         const tableId = `${toolName}-history-table`;
         const tableBody = document.querySelector(`#${tableId} tbody`);
         
-        console.log(`updateScanHistoryTable pour ${toolName} :`, {
-            tableId: tableId,
-            tableBodyTrouvé: !!tableBody,
-            nombreDeDonnées: scans?.length || 0,
-            données: scans
-        });
-        
         if (!tableBody) {
             console.warn(`Table body non trouvé pour ${tableId}`);
             return;
@@ -872,15 +848,6 @@ function fetchScanHistory(toolName, limit = 10) {
         
         // Vider la table
         tableBody.innerHTML = '';
-        
-        // Ajouter un message si aucune donnée
-        if (!scans || scans.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8">Aucune donnée disponible</td></tr>';
-            return;
-        }
-        
-        // Reste du code...
-    }
         
         // Remplir avec les nouvelles données
         scans.forEach(scan => {
@@ -906,7 +873,7 @@ function fetchScanHistory(toolName, limit = 10) {
             
             tableBody.appendChild(row);
         });
-    
+    }
     
     /**
      * Formatage du statut d'un scan pour l'affichage
@@ -1551,7 +1518,7 @@ function fetchScanHistory(toolName, limit = 10) {
         }
     });
     
-    let zapDataLoaded = false;
+    
     
     function loadZapData() {
         
