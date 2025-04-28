@@ -483,21 +483,19 @@ function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    // Récupérer la période sélectionnée (si applicable)
-    const periodSelector = document.getElementById('period-selector');
-    const days = periodSelector ? parseInt(periodSelector.value) : 30;
+
     
-    // Charger les vulnérabilités si le tableau existe
-    if (document.getElementById('zap-vulnerabilities-table-body')) {
+    // Charger les vulnérabilités de ZAP si la table existe
+    if (document.querySelector('#zap-vulnerabilities-table-body')) {
         fetchVulnerabilities('zap');
     }
     
-    // Charger l'historique des scans si le tableau existe
-    if (document.getElementById('zap-history-table-body')) {
+    // Charger l'historique des scans ZAP si la table existe
+    if (document.querySelector('#zap-history-table-body')) {
         fetchScanHistory('zap');
     }
     
-    // Charger les données spécifiques à ZAP (graphiques, etc.)
+    // Initialiser la partie spécifique à ZAP si la fonction existe
     if (typeof loadZapData === 'function') {
         loadZapData();
     }
