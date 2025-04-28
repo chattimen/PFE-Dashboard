@@ -2179,8 +2179,8 @@ function fetchScanHistory(toolName, limit = 10) {
     
     // Fonction d'initialisation des données de développement
     // Décommenter pour activer en mode développement
-    // document.addEventListener('DOMContentLoaded', function() {
-    //     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    //         setTimeout(populateDemoData, 1000); // Délai pour simuler le chargement
-    //     }
-    // });
+     document.addEventListener('DOMContentLoaded', function() {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            setTimeout(populateDemoData, 1000); // Délai pour simuler le chargement
+         }
+     });
