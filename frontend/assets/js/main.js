@@ -480,155 +480,25 @@ function initSonarQubePage() {
 }
 
 /**
- * Initialisation de la page OWASP ZAP avec débogage amélioré
+ * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    console.log("Début de l'initialisation de la page ZAP");
-    
     // Forcer le rechargement des données ZAP
     zapDataLoaded = false;
     
-    // Afficher un message de débogage dans la page pour indiquer le chargement
-    const zapPage = document.getElementById('zap-page');
-    if (zapPage) {
-        const debugMsg = document.createElement('div');
-        debugMsg.className = 'debug-message';
-        debugMsg.style.padding = '10px';
-        debugMsg.style.margin = '10px 0';
-        debugMsg.style.border = '1px solid #ccc';
-        debugMsg.style.backgroundColor = '#f8f9fa';
-        debugMsg.innerHTML = '<h4>Chargement des données ZAP...</h4>';
-        
-        // Insérer le message au début de la page
-        if (zapPage.firstChild) {
-            zapPage.insertBefore(debugMsg, zapPage.firstChild);
-        } else {
-            zapPage.appendChild(debugMsg);
-        }
-        
-        // Référence pour mettre à jour plus tard
-        window.debugElement = debugMsg;
-    }
-    
-    // Vérifier l'existence des tables
-    const vulnTableExists = document.querySelector('#zap-vulnerabilities-table-body') !== null;
-    const historyTableExists = document.querySelector('#zap-history-table-body') !== null;
-    
-    console.log("Tables ZAP trouvées:", {
-        vulnerabilityTable: vulnTableExists,
-        historyTable: historyTableExists
-    });
-    
-    if (window.debugElement) {
-        window.debugElement.innerHTML += `
-            <p>Tables trouvées:
-                <ul>
-                    <li>Vulnérabilités: ${vulnTableExists ? 'Oui' : 'Non'}</li>
-                    <li>Historique: ${historyTableExists ? 'Oui' : 'Non'}</li>
-                </ul>
-            </p>
-        `;
-    }
-    
-    // Force la création des tableaux s'ils n'existent pas
-    if (!vulnTableExists) {
-        const vulnTable = document.querySelector('#zap-vulnerabilities-table');
-        if (vulnTable && !document.querySelector('#zap-vulnerabilities-table-body')) {
-            console.log("Création du tbody manquant pour le tableau des vulnérabilités");
-            const tbody = document.createElement('tbody');
-            tbody.id = 'zap-vulnerabilities-table-body';
-            vulnTable.appendChild(tbody);
-        }
-    }
-    
-    if (!historyTableExists) {
-        const historyTable = document.querySelector('#zap-history-table');
-        if (historyTable && !document.querySelector('#zap-history-table-body')) {
-            console.log("Création du tbody manquant pour le tableau d'historique");
-            const tbody = document.createElement('tbody');
-            tbody.id = 'zap-history-table-body';
-            historyTable.appendChild(tbody);
-        }
-    }
-    
-    // Charger les vulnérabilités de ZAP
-    try {
-        console.log("Chargement des vulnérabilités ZAP");
+    // Charger les vulnérabilités de ZAP si la table existe
+    if (document.querySelector('#zap-vulnerabilities-table-body')) {
         fetchVulnerabilities('zap');
-        if (window.debugElement) {
-            window.debugElement.innerHTML += '<p>✓ Appel à fetchVulnerabilities(\'zap\')</p>';
-        }
-    } catch (error) {
-        console.error("Erreur lors du chargement des vulnérabilités:", error);
-        if (window.debugElement) {
-            window.debugElement.innerHTML += `<p>⚠️ Erreur: ${error.message}</p>`;
-        }
     }
     
-    // Charger l'historique des scans ZAP
-    try {
-        console.log("Chargement de l'historique des scans ZAP");
+    // Charger l'historique des scans ZAP si la table existe
+    if (document.querySelector('#zap-history-table-body')) {
         fetchScanHistory('zap');
-        if (window.debugElement) {
-            window.debugElement.innerHTML += '<p>✓ Appel à fetchScanHistory(\'zap\')</p>';
-        }
-    } catch (error) {
-        console.error("Erreur lors du chargement de l'historique:", error);
-        if (window.debugElement) {
-            window.debugElement.innerHTML += `<p>⚠️ Erreur: ${error.message}</p>`;
-        }
     }
     
-    // Initialiser la partie spécifique à ZAP
-    try {
-        if (typeof loadZapData === 'function') {
-            console.log("Chargement des données spécifiques ZAP");
-            loadZapData();
-            if (window.debugElement) {
-                window.debugElement.innerHTML += '<p>✓ Appel à loadZapData()</p>';
-            }
-        } else {
-            console.warn("Fonction loadZapData non disponible");
-            if (window.debugElement) {
-                window.debugElement.innerHTML += '<p>⚠️ Fonction loadZapData non disponible</p>';
-            }
-            
-            // Utiliser les données de démonstration
-            populateDemoData();
-        }
-    } catch (error) {
-        console.error("Erreur lors du chargement des données ZAP:", error);
-        if (window.debugElement) {
-            window.debugElement.innerHTML += `<p>⚠️ Erreur: ${error.message}</p>`;
-            window.debugElement.innerHTML += '<p>Tentative de chargement des données de démonstration...</p>';
-        }
-        
-        // En cas d'erreur, utiliser les données de démonstration
-        try {
-            populateDemoData();
-            if (window.debugElement) {
-                window.debugElement.innerHTML += '<p>✓ Données de démonstration chargées</p>';
-            }
-        } catch (demoError) {
-            console.error("Erreur lors du chargement des données de démonstration:", demoError);
-            if (window.debugElement) {
-                window.debugElement.innerHTML += `<p>⚠️ Erreur: ${demoError.message}</p>`;
-            }
-        }
-    }
-    
-    console.log("Fin de l'initialisation de la page ZAP");
-    
-    // Ajouter un bouton pour recharger les données (pour déboguer)
-    if (window.debugElement) {
-        window.debugElement.innerHTML += `
-            <button onclick="initZapPage()" class="btn btn-sm btn-primary">
-                Recharger la page ZAP
-            </button>
-            <button onclick="populateDemoData()" class="btn btn-sm btn-secondary">
-                Charger les données de démonstration
-            </button>
-        `;
+    // Initialiser la partie spécifique à ZAP si la fonction existe
+    if (typeof loadZapData === 'function') {
+        loadZapData();
     }
 }
 /**
