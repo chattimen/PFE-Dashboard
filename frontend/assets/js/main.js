@@ -483,22 +483,54 @@ function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-
+    console.log("Initialisation de la page ZAP...");
     
-    // Charger les vulnérabilités de ZAP si la table existe
-    if (document.querySelector('#zap-vulnerabilities-table-body')) {
-        fetchVulnerabilities('zap');
+    // Étape 1: Vérifier les éléments du DOM
+    const vulnerabilitiesTableBody = document.querySelector('#zap-vulnerabilities-table-body');
+    const historyTableBody = document.querySelector('#zap-history-table-body');
+    
+    console.log("Tables ZAP:", {
+        vulnerabilitiesTable: !!vulnerabilitiesTableBody,
+        historyTable: !!historyTableBody
+    });
+    
+    // Étape 2: Afficher un message de chargement dans les tableaux
+    if (vulnerabilitiesTableBody) {
+        vulnerabilitiesTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Chargement des données...</td></tr>';
     }
     
-    // Charger l'historique des scans ZAP si la table existe
-    if (document.querySelector('#zap-history-table-body')) {
-        fetchScanHistory('zap');
+    if (historyTableBody) {
+        historyTableBody.innerHTML = '<tr><td colspan="8" class="text-center">Chargement des données...</td></tr>';
     }
     
-    // Initialiser la partie spécifique à ZAP si la fonction existe
+    // Étape 3: Charger séquentiellement les données pour éviter les conflits
+    // D'abord charger les données ZAP spécifiques (graphiques, etc.)
     if (typeof loadZapData === 'function') {
-        loadZapData();
+        try {
+            loadZapData();
+            console.log("Données ZAP chargées avec succès");
+        } catch (e) {
+            console.error("Erreur dans loadZapData():", e);
+        }
     }
+    
+    // Ensuite charger les vulnérabilités avec un léger délai
+    setTimeout(() => {
+        if (vulnerabilitiesTableBody) {
+            console.log("Chargement des vulnérabilités ZAP...");
+            fetchVulnerabilities('zap');
+        }
+        
+        // Puis charger l'historique avec un autre léger délai
+        setTimeout(() => {
+            if (historyTableBody) {
+                console.log("Chargement de l'historique ZAP...");
+                fetchScanHistory('zap');
+            }
+        }, 500);
+    }, 500);
+    
+    console.log("Initialisation de la page ZAP terminée");
 }
 /**
  * Initialisation de la page Selenium
@@ -1517,7 +1549,6 @@ function fetchScanHistory(toolName, limit = 10) {
             loadZapData();
         }
     });
-    
     
     
     function loadZapData() {
