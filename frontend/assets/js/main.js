@@ -480,277 +480,48 @@ function initSonarQubePage() {
 }
 
 /**
- * Chargement des statistiques des vulnérabilités ZAP
- */
-function loadZapVulnerabilityStats(days = 30) {
-    fetch(`${API_BASE_URL}/vulnerabilities/stats?tool_name=zap&days=${days}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                updateZapVulnerabilityStatsUI(data.data);
-            } else {
-                console.error('Erreur lors du chargement des statistiques ZAP:', data.message);
-                showNotification('Erreur lors du chargement des statistiques ZAP', 'error');
-                
-                // En cas d'erreur, réinitialiser les compteurs à zéro
-                resetZapCounters();
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API:', error);
-            showNotification('Erreur de connexion à l\'API pour les statistiques ZAP', 'error');
-            
-            // En cas d'erreur, réinitialiser les compteurs à zéro
-            resetZapCounters();
-        });
-}
-
-/**
- * Mise à jour de l'interface avec les statistiques de vulnérabilités ZAP
- */
-function updateZapVulnerabilityStatsUI(stats) {
-    console.log("Mise à jour des statistiques ZAP avec:", stats);
-    
-    // Compteurs par sévérité
-    let criticalCount = 0;
-    let highCount = 0;
-    let mediumCount = 0;
-    let lowCount = 0;
-    
-    // Agréger les données
-    stats.forEach(stat => {
-        if (stat.status === 'open') {
-            if (stat.severity === 'critical') {
-                criticalCount += parseInt(stat.count);
-            } else if (stat.severity === 'high') {
-                highCount += parseInt(stat.count);
-            } else if (stat.severity === 'medium') {
-                mediumCount += parseInt(stat.count);
-            } else if (stat.severity === 'low' || stat.severity === 'info') {
-                lowCount += parseInt(stat.count);
-            }
-        }
-    });
-    
-    // Mettre à jour les compteurs dans l'interface (avec vérification)
-    const criticalElement = document.getElementById('zap-critical-count');
-    if (criticalElement) criticalElement.textContent = criticalCount;
-    
-    const highElement = document.getElementById('zap-high-count');
-    if (highElement) highElement.textContent = highCount;
-    
-    const mediumElement = document.getElementById('zap-medium-count');
-    if (mediumElement) mediumElement.textContent = mediumCount;
-    
-    const lowElement = document.getElementById('zap-low-count');
-    if (lowElement) lowElement.textContent = lowCount;
-    
-    const totalCount = criticalCount + highCount + mediumCount + lowCount;
-    const totalElement = document.getElementById('zap-vulnerability-count');
-    if (totalElement) totalElement.textContent = totalCount;
-    
-    // Mettre à jour le graphique de répartition s'il existe
-    if (document.getElementById('zap-severity-chart')) {
-        updateZapSeverityChart(criticalCount, highCount, mediumCount, lowCount);
-    }
-    
-    // Afficher un message si aucune vulnérabilité n'est trouvée
-    if (totalCount === 0) {
-        showNotification("Aucune vulnérabilité ZAP active détectée", "info");
-    } else {
-        showNotification(`${totalCount} vulnérabilités ZAP chargées avec succès`, "success");
-    }
-}
-
-/**
- * Mise à jour du graphique de distribution des vulnérabilités ZAP
- */
-function updateZapSeverityChart(critical, high, medium, low) {
-    const chartElement = document.getElementById('zap-severity-chart');
-    if (!chartElement) {
-        console.warn('Élément de graphique zap-severity-chart non trouvé');
-        return;
-    }
-    
-    const ctx = chartElement.getContext('2d');
-    
-    // Supprimer l'ancien graphique s'il existe
-    if (window.zapSeverityChart) {
-        window.zapSeverityChart.destroy();
-    }
-    
-    // Créer le nouveau graphique
-    window.zapSeverityChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
-            datasets: [{
-                data: [critical, high, medium, low],
-                backgroundColor: [
-                    '#d81b60', // Rouge
-                    '#e65100', // Orange
-                    '#ffc107', // Jaune
-                    '#2196f3'  // Bleu
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        color: darkMode ? '#ffffff' : '#333333'
-                    }
-                },
-                title: {
-                    display: true,
-                    text: 'Distribution des vulnérabilités par sévérité',
-                    color: darkMode ? '#ffffff' : '#333333'
-                }
-            }
-        }
-    });
-}
-
-/**
- * Mise à jour du graphique par catégorie ZAP
- */
-function updateZapCategoryChart(vulnerabilities) {
-    const chartElement = document.getElementById('zap-category-chart');
-    if (!chartElement) {
-        console.warn('Élément de graphique zap-category-chart non trouvé');
-        return;
-    }
-    
-    // Comptage par catégorie
-    const categories = {};
-    vulnerabilities.forEach(vuln => {
-        const category = vuln.category || 'Autre';
-        if (!categories[category]) {
-            categories[category] = 0;
-        }
-        categories[category]++;
-    });
-    
-    // Conversion en tableaux pour le graphique
-    const labels = Object.keys(categories);
-    const data = Object.values(categories);
-    
-    const ctx = chartElement.getContext('2d');
-    
-    // Supprimer l'ancien graphique s'il existe
-    if (window.zapCategoryChart) {
-        window.zapCategoryChart.destroy();
-    }
-    
-    // Créer le nouveau graphique
-    window.zapCategoryChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Nombre de vulnérabilités',
-                data: data,
-                backgroundColor: '#4e73df'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0,
-                        color: darkMode ? '#ffffff' : '#333333'
-                    },
-                    grid: {
-                        color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: darkMode ? '#ffffff' : '#333333'
-                    },
-                    grid: {
-                        color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                title: {
-                    display: true,
-                    text: 'Vulnérabilités par catégorie',
-                    color: darkMode ? '#ffffff' : '#333333'
-                }
-            }
-        }
-    });
-}
-
-/**
- * Fonction pour réinitialiser les compteurs à zéro
- */
-function resetZapCounters() {
-    const criticalElement = document.getElementById('zap-critical-count');
-    if (criticalElement) criticalElement.textContent = "0";
-    
-    const highElement = document.getElementById('zap-high-count');
-    if (highElement) highElement.textContent = "0";
-    
-    const mediumElement = document.getElementById('zap-medium-count');
-    if (mediumElement) mediumElement.textContent = "0";
-    
-    const lowElement = document.getElementById('zap-low-count');
-    if (lowElement) lowElement.textContent = "0";
-    
-    const totalElement = document.getElementById('zap-vulnerability-count');
-    if (totalElement) totalElement.textContent = "0";
-}
-/**
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    function initZapPage() {
-        console.log("Initialisation de la page ZAP...");
-        
-        // Ajouter un indicateur de chargement
-        updateLoadingState(true);
-        showNotification("Chargement des données ZAP...", "info");
-        
-        // 1. Charger les statistiques des vulnérabilités
-        loadZapVulnerabilityStats(30);
-        
-        // 2. Charger l'historique des scans
-        fetchScanHistory('zap', 50)
-            .then(historyData => {
-                console.log("Historique ZAP chargé:", historyData);
-                
-                // 3. Charger les vulnérabilités détaillées
-                return fetchVulnerabilities('zap', 5000, 0)
-                    .then(vulnData => {
-                        console.log("Vulnérabilités ZAP chargées:", vulnData);
-                        
-                        if (vulnData.status === 'success') {
-                            // Mettre à jour le graphique par catégorie
-                            updateZapCategoryChart(vulnData.data);
+    const tryFetchScanHistory = (attempts = 3, delay = 500) => {
+        const table = document.querySelector('#zap-history-table tbody');
+        if (table) {
+            fetchScanHistory('zap', 50).then(data => {
+                if (data.status === 'success') {
+                    // Fetch vulnerabilities after scan history
+                    return fetchVulnerabilities('zap', 5000, 0).then(vulnData => {
+                        if (vulnData.status === 'success' && vulnData.data.length === 0 && data.data.length === 0) {
+                            // No scans or vulnerabilities, trigger an active scan
+                            return fetch(`${API_BASE_URL}/scan/zap/active`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ url: 'http://192.168.231.128:8080/training.php' })
+                            })
+                            .then(response => response.json())
+                            .then(result => {
+                                if (result.status === 'success') {
+                                    return fetchScanHistory('zap', 50).then(() => fetchVulnerabilities('zap', 5000, 0));
+                                }
+                                throw new Error('Active scan initiation failed');
+                            });
                         }
-                        
-                        // Dans tous les cas, enlever l'indicateur de chargement
-                        updateLoadingState(false);
                     });
-            })
-            .catch(error => {
-                console.error("Erreur lors du chargement des données ZAP:", error);
-                showNotification("Erreur lors du chargement des données ZAP", "error");
-                updateLoadingState(false);
+                }
+            }).catch(error => {
+                console.error('Error in fetchScanHistory or fetchVulnerabilities:', error);
+                showNotification('Erreur lors de la récupération des données ZAP', 'error');
             });
+        } else if (attempts > 0) {
+            console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
+            setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
+        } else {
+            console.error('Échec de la récupération de l\'historique des scans ZAP : tableau non trouvé');
+            showNotification('Erreur : Impossible de charger l\'historique des scans ZAP', 'error');
         }
+    };
+
     tryFetchScanHistory();
     if (typeof loadZapData === 'function') {
         loadZapData();
