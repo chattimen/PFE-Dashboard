@@ -526,6 +526,185 @@ function initZapPage() {
     if (typeof loadZapData === 'function') {
         loadZapData();
     }
+    function updateZapVulnerabilityCounters(vulnerabilities) {
+        console.log("Mise à jour des compteurs ZAP avec", vulnerabilities.length, "vulnérabilités");
+        
+        // Comptage des vulnérabilités par niveau de sévérité
+        const severityCounts = {
+            critical: 0,
+            high: 0,
+            medium: 0,
+            low: 0,
+            info: 0
+        };
+        
+        // Parcourir toutes les vulnérabilités pour les compter par sévérité
+        vulnerabilities.forEach(vuln => {
+            const severity = vuln.severity ? vuln.severity.toLowerCase() : 'info';
+            
+            if (severity === 'critical') severityCounts.critical++;
+            else if (severity === 'high') severityCounts.high++;
+            else if (severity === 'medium') severityCounts.medium++;
+            else if (severity === 'low' || severity === 'info') {
+                if (severity === 'low') severityCounts.low++;
+                else severityCounts.info++;
+            }
+        });
+        
+        // Mise à jour des compteurs dans l'interface
+        document.getElementById('zap-critical-count').textContent = severityCounts.critical;
+        document.getElementById('zap-high-count').textContent = severityCounts.high;
+        document.getElementById('zap-medium-count').textContent = severityCounts.medium;
+        document.getElementById('zap-low-count').textContent = severityCounts.low + severityCounts.info;
+        
+        // Mettre à jour les graphiques si des éléments canvas existent
+        updateZapCharts(vulnerabilities);
+        
+        console.log("Compteurs ZAP mis à jour:", severityCounts);
+    }
+    
+    // 4. Réinitialiser les compteurs à zéro
+    function resetZapCounters() {
+        document.getElementById('zap-critical-count').textContent = "0";
+        document.getElementById('zap-high-count').textContent = "0";
+        document.getElementById('zap-medium-count').textContent = "0";
+        document.getElementById('zap-low-count').textContent = "0";
+    }
+    
+    // 5. Fonction pour mettre à jour les graphiques ZAP
+    function updateZapCharts(vulnerabilities) {
+        // Vérifier si les éléments canvas existent
+        const severityChart = document.getElementById('zap-severity-chart');
+        const categoryChart = document.getElementById('zap-category-chart');
+        
+        if (!severityChart || !categoryChart) {
+            console.warn("Éléments canvas pour les graphiques ZAP non trouvés");
+            return;
+        }
+        
+        // Comptage pour les graphiques
+        const severityCounts = [0, 0, 0, 0]; // Critical, High, Medium, Low/Info
+        const categoryCounts = {};
+        
+        // Parcourir les vulnérabilités pour préparer les données des graphiques
+        vulnerabilities.forEach(vuln => {
+            const severity = vuln.severity ? vuln.severity.toLowerCase() : 'info';
+            
+            if (severity === 'critical') severityCounts[0]++;
+            else if (severity === 'high') severityCounts[1]++;
+            else if (severity === 'medium') severityCounts[2]++;
+            else severityCounts[3]++; // low ou info
+            
+            // Compter par catégorie (utiliser vuln.category ou "Autre" si non défini)
+            const category = vuln.category || "Autre";
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+        });
+        
+        // Créer ou mettre à jour le graphique de sévérité
+        createOrUpdateSeverityChart(severityChart, severityCounts);
+        
+        // Créer ou mettre à jour le graphique de catégorie
+        createOrUpdateCategoryChart(categoryChart, categoryCounts);
+    }
+    
+    // 6. Fonction pour créer ou mettre à jour le graphique de sévérité
+    function createOrUpdateSeverityChart(canvas, data) {
+        // Détruire le graphique existant s'il existe
+        if (window.zapSeverityChart) {
+            window.zapSeverityChart.destroy();
+        }
+        
+        // Créer un nouveau graphique
+        const ctx = canvas.getContext('2d');
+        window.zapSeverityChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
+                datasets: [{
+                    data: data,
+                    backgroundColor: ['#d81b60', '#e65100', '#ffc107', '#2196f3']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: darkMode ? '#ffffff' : '#333333'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribution des vulnérabilités par sévérité',
+                        color: darkMode ? '#ffffff' : '#333333'
+                    }
+                }
+            }
+        });
+    }
+    
+    // 7. Fonction pour créer ou mettre à jour le graphique de catégorie
+    function createOrUpdateCategoryChart(canvas, categoryCounts) {
+        // Détruire le graphique existant s'il existe
+        if (window.zapCategoryChart) {
+            window.zapCategoryChart.destroy();
+        }
+        
+        // Préparer les données pour le graphique
+        const labels = Object.keys(categoryCounts);
+        const data = labels.map(label => categoryCounts[label]);
+        
+        // Créer un nouveau graphique
+        const ctx = canvas.getContext('2d');
+        window.zapCategoryChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Nombre de vulnérabilités',
+                    data: data,
+                    backgroundColor: '#4e73df'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            color: darkMode ? '#ffffff' : '#333333'
+                        },
+                        grid: {
+                            color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: darkMode ? '#ffffff' : '#333333'
+                        },
+                        grid: {
+                            color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: darkMode ? '#ffffff' : '#333333'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Vulnérabilités par catégorie',
+                        color: darkMode ? '#ffffff' : '#333333'
+                    }
+                }
+            }
+        });
+    }
+    
 }
 
 /**
