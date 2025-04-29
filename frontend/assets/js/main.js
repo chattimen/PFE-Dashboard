@@ -483,19 +483,21 @@ function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
+    const tryFetchScanHistory = (attempts = 3, delay = 500) => {
+        const table = document.querySelector('#zap-history-table tbody');
+        if (table) {
+            fetchScanHistory('zap', 50); // Use 'zap' as the tool_name
+        } else if (attempts > 0) {
+            console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
+            setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
+        } else {
+            console.error('Échec de la récupération de l\'historique des scans ZAP : tableau non trouvé');
+            showNotification('Erreur : Impossible de charger l\'historique des scans ZAP', 'error');
+        }
+    };
 
-    
-    // Charger les vulnérabilités de ZAP si la table existe
-    if (document.querySelector('#zap-vulnerabilities-table-body')) {
-        fetchVulnerabilities('zap');
-    }
-    
-    // Charger l'historique des scans ZAP si la table existe
-    if (document.querySelector('#zap-history-table-body')) {
-        fetchScanHistory('zap');
-    }
-    
-    // Initialiser la partie spécifique à ZAP si la fonction existe
+    tryFetchScanHistory();
+
     if (typeof loadZapData === 'function') {
         loadZapData();
     }
@@ -513,7 +515,7 @@ function initSeleniumPage() {
 /**
  * Récupération des vulnérabilités par outil
  */
-function fetchVulnerabilities(toolName, limit = 50, offset = 0) {
+function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
     // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
     const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
     
@@ -521,7 +523,7 @@ function fetchVulnerabilities(toolName, limit = 50, offset = 0) {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                updateVulnerabilitiesTable(data.data, toolName);
+                updateVulnerabilitiesTable( apiToolName, data.data);
             } else {
                 console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
             }
@@ -535,7 +537,7 @@ function fetchVulnerabilities(toolName, limit = 50, offset = 0) {
 /**
  * Mise à jour de la table des vulnérabilités
  */
-function updateVulnerabilitiesTable(vulnerabilities, toolName) {
+function updateVulnerabilitiesTable( toolName ,vulnerabilities) {
     const tableId = `${toolName}-vulnerabilities-table`;
     const tableBody = document.querySelector(`#${tableId} tbody`);
     
@@ -730,6 +732,7 @@ function showVulnerabilityModal(vuln) {
  * Formatage du nom de l'outil pour l'affichage
  */
 function formatToolName(toolName) {
+    
     if (!toolName) return 'Inconnu';
     
     switch (toolName.toLowerCase()) {
@@ -737,7 +740,7 @@ function formatToolName(toolName) {
             return 'Trivy';
         case 'sonarqube':
             return 'SonarQube';
-        case 'owasp_zap':
+        case 'zap':
             return 'OWASP ZAP';
         case 'selenium':
             return 'Selenium';
@@ -796,58 +799,55 @@ function updateVulnerabilityStatus(id, newStatus) {
  * Récupération de l'historique des scans par outil
  */
 function fetchScanHistory(toolName, limit = 10) {
-    // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
-    const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
-    
-    // Assurez-vous que API_BASE_URL est correctement défini
-    fetch(`${API_BASE_URL}/scans?tool_name=${apiToolName}&limit=${limit}`)
+    console.log(`Fetching scan history for ${toolName} with limit=${limit}`);
+    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
         .then(response => {
-            // Vérifier si la réponse HTTP est OK (statut 200-299)
             if (!response.ok) {
-                // Si non OK, rejeter la promesse pour passer au .catch
-                 return response.json().then(errorData => {
-                     throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${errorData.message || response.statusText}`);
-                 }).catch(() => {
-                     // Gérer le cas où la réponse n'est pas OK et le corps n'est pas un JSON valide
-                     throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${response.statusText}`);
-                 });
+                return response.json().then(errorData => {
+                    throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${errorData.message || response.statusText}`);
+                }).catch(() => {
+                    throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${response.statusText}`);
+                });
             }
-            // Si OK, traiter la réponse JSON
             return response.json();
         })
         .then(data => {
-            // Ce bloc s'exécute si fetch et response.json() réussissent
+            console.log(`Scan history response for ${toolName}:`, data);
             if (data.status === 'success') {
-                // Appeler la fonction pour mettre à jour le tableau avec les données reçues
                 updateScanHistoryTable(data.data, toolName);
             } else {
-                // Si l'API renvoie un statut 'error' dans le corps de la réponse
                 console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
-                // Optionnel : Afficher une notification même pour une erreur logique de l'API
-                 showNotification(`L\'API a signalé une erreur pour l\'historique ${toolName}: ${data.message}`, 'warning'); // Utilisez 'warning' ou 'error'
+                showNotification(`L'API a signalé une erreur pour l'historique ${toolName}: ${data.message}`, 'warning');
             }
         })
         .catch(error => {
-            // Ce bloc s'exécute si une erreur réseau survient ou si response.ok était false
             console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
-            // Afficher une notification à l'utilisateur
-            showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error'); // Correction de la parenthèse en trop et affichage du message d'erreur
+            showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
         });
 }
     /**
      * Mise à jour de la table d'historique des scans
      */
     function updateScanHistoryTable(scans, toolName) {
+        
         const tableId = `${toolName}-history-table`;
-        const tableBody = document.querySelector(`#${tableId} tbody`);
+        
+        const adjustedTableId = toolName === 'owasp_zap' ? 'zap-history-table' : tableId; // Adjust for ZAP
+        const tableBody = document.querySelector(`#${adjustedTableId} tbody`);
         
         if (!tableBody) {
-            console.warn(`Table body non trouvé pour ${tableId}`);
+            console.warn(`Table body non trouvé pour ${adjustedTableId}`);
             return;
         }
         
         // Vider la table
         tableBody.innerHTML = '';
+        
+        // Handle empty state
+        if (!scans || scans.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" class="text-center">Aucun scan trouvé</td></tr>';
+            return;
+        }
         
         // Remplir avec les nouvelles données
         scans.forEach(scan => {
@@ -874,7 +874,6 @@ function fetchScanHistory(toolName, limit = 10) {
             tableBody.appendChild(row);
         });
     }
-    
     /**
      * Formatage du statut d'un scan pour l'affichage
      */
@@ -1517,123 +1516,93 @@ function fetchScanHistory(toolName, limit = 10) {
             loadZapData();
         }
     });
-    
-    
-    function loadZapData() {
-        
-        try {
-            // Dans un environnement réel, ces données seraient récupérées via AJAX
-            // Pour l'exemple, nous utilisons des données de démonstration
-            const zapData = {
-                "@programName": "ZAP",
-                "@version": "2.16.0",
-                "@generated": "Wed, 23 Apr 2025 14:45:54",
-                "site": [ 
-                    {
-                        "@name": "http://192.168.231.128:8080",
-                        "@host": "192.168.231.128",
-                        "@port": "8080",
-                        "@ssl": "false",
-                        "alerts": [
+    function transformApiDataToZapFormat(vulnerabilities) {
+        const zapData = {
+            "@programName": "ZAP",
+            "@version": "2.16.0",
+            "@generated": new Date().toISOString(),
+            "site": [
+                {
+                    "@name": vulnerabilities[0]?.location || "http://unknown", // Use the first vulnerability's location
+                    "@host": vulnerabilities[0]?.location?.split('/')[2]?.split(':')[0] || "unknown",
+                    "@port": vulnerabilities[0]?.location?.split(':')[3] || "80",
+                    "@ssl": vulnerabilities[0]?.location?.startsWith('https') ? "true" : "false",
+                    "alerts": vulnerabilities.map(vuln => ({
+                        "pluginid": vuln.id || "N/A",
+                        "alertRef": vuln.id || "N/A",
+                        "alert": vuln.title || "Unknown Vulnerability",
+                        "name": vuln.title || "Unknown Vulnerability",
+                        "riskcode": mapSeverityToRiskCode(vuln.severity),
+                        "confidence": "2",
+                        "riskdesc": `${formatSeverity(vuln.severity)} (Medium)`,
+                        "desc": vuln.description || "No description available",
+                        "instances": [
                             {
-                                "pluginid": "10016",
-                                "alertRef": "10016",
-                                "alert": "Web Browser XSS Protection Not Enabled",
-                                "name": "Web Browser XSS Protection Not Enabled",
-                                "riskcode": "1",
-                                "confidence": "2",
-                                "riskdesc": "Low (Medium)",
-                                "desc": "Web Browser XSS Protection is not enabled, or is disabled by the configuration of the 'X-XSS-Protection' HTTP response header on the web server",
-                                "instances": [
-                                    {
-                                       "uri": "http://192.168.231.128:8080/login",
-                                        "method": "GET",
-                                        "param": "",
-                                        "attack": "",
-                                        "evidence": ""
-                                    }
-                                ],
-                                "count": "1",
-                                "solution": "Ensure that the web browser's XSS filter is enabled, by setting the X-XSS-Protection HTTP response header to '1'.",
-                                "otherinfo": "The X-XSS-Protection HTTP response header allows the web server to enable or disable the web browser's XSS protection mechanism.",
-                                "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection",
-                                "cweid": "933",
-                                "wascid": "14",
-                                "sourceid": ""
-                            },
-                            {
-                                "pluginid": "10021",
-                                "alertRef": "10021",
-                                "alert": "X-Content-Type-Options Header Missing",
-                                "name": "X-Content-Type-Options Header Missing",
-                                "riskcode": "1",
-                                "confidence": "2",
-                                "riskdesc": "Low (Medium)",
-                                "desc": "The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'.",
-                                "instances": [
-                                    {
-                                        "uri": "http://192.168.231.128:8080/assets/js/main.js",
-                                        "method": "GET",
-                                        "param": "",
-                                        "attack": "",
-                                        "evidence": ""
-                                    }
-                                ],
-                                "count": "3",
-                                "solution": "Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.",
-                                "reference": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/06-Test_for_Content_Security_Policy",
-                                "cweid": "693",
-                                "wascid": "15",
-                                "sourceid": ""
-                            },
-                            {
-                                "pluginid": "10096",
-                                "alertRef": "10096",
-                                "alert": "Timestamp Disclosure",
-                                "name": "Timestamp Disclosure",
-                                "riskcode": "0",
-                                "confidence": "1",
-                                "riskdesc": "Informational (Low)",
-                                "desc": "A timestamp was disclosed by the application/web server.",
-                                "instances": [
-                                    {
-                                        "uri": "http://192.168.231.128:8080/assets/js/main.js",
-                                        "method": "GET",
-                                        "param": "",
-                                        "attack": "",
-                                        "evidence": "20200"
-                                    }
-                                ],
-                                "count": "15",
-                                "solution": "Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns.",
-                                "otherinfo": "20200, which appears to be a timestamp, was found in the response body.",
-                                "reference": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage",
-                                "cweid": "200",
-                                "wascid": "13",
-                                "sourceid": ""
+                                "uri": vuln.location || "N/A",
+                                "method": "GET",
+                                "param": "",
+                                "attack": "",
+                                "evidence": ""
                             }
-                        ]
-                    }
-                ]
-            };
+                        ],
+                        "count": "1",
+                        "solution": vuln.remediation || "No solution provided",
+                        "otherinfo": "",
+                        "reference": "",
+                        "cweid": vuln.cwe || "-1", // Use 'cwe' field from API
+                        "wascid": "-1", // API doesn't provide WASC; adjust if available
+                        "sourceid": ""
+                    }))
+                }
+            ]
+        };
+        return zapData;
+    }
     
-            // Récupérer le JSON depuis une balise script si disponible, sinon utiliser les données de démonstration
-            const jsonElement = document.getElementById('zap-data');
-            if (jsonElement && jsonElement.textContent) {
-                const parsedData = JSON.parse(jsonElement.textContent);
-                processZapData(parsedData);
-            } else {
-                // Utiliser les données de démonstration
-                processZapData(zapData);
-            }
-            zapDataLoaded = true;
-        } catch (e) {
-            console.error("Erreur lors du traitement des données ZAP:", e);
-            showNotification("Erreur lors du chargement des données ZAP", "error");
-            zapDataLoaded = false; // Réinitialiser le drapeau en cas d'erreur
+    function mapSeverityToRiskCode(severity) {
+        switch (severity.toLowerCase()) {
+            case 'critical':
+                return "3";
+            case 'high':
+                return "2";
+            case 'medium':
+                return "1";
+            case 'low':
+            case 'info':
+                return "0";
+            default:
+                return "0";
         }
     }
     
+    function loadZapData() {
+        try {
+            fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&limit=5000&offset=0`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('ZAP vulnerabilities API response:', data); // Debug: Log the API response
+                    if (data.status === 'success') {
+                        const zapData = transformApiDataToZapFormat(data.data);
+                        processZapData(zapData);
+                        zapDataLoaded = true;
+                    } else {
+                        console.error('Erreur lors du chargement des données ZAP:', data.message);
+                        showNotification('Erreur lors du chargement des données ZAP', 'error');
+                        zapDataLoaded = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la requête API pour ZAP:', error);
+                    showNotification('Erreur lors de la connexion au serveur pour ZAP', 'error');
+                    zapDataLoaded = false;
+                });
+        } catch (e) {
+            console.error('Erreur lors du traitement des données ZAP:', e);
+            showNotification('Erreur lors du chargement des données ZAP', 'error');
+            zapDataLoaded = false;
+        }
+    }
+
     function processZapData(data) {
         if (!data || !data.site || !data.site[0]) {
             console.error("Format de données ZAP invalide");
