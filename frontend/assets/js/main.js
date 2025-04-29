@@ -716,45 +716,41 @@ function resetZapCounters() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    const tryFetchScanHistory = (attempts = 3, delay = 500) => {
-        const table = document.querySelector('#zap-history-table tbody');
-        if (table) {
-            fetchScanHistory('zap', 50).then(data => {
-                if (data.status === 'success') {
-                    // Fetch vulnerabilities after scan history
-                    return fetchVulnerabilities('zap', 5000, 0).then(vulnData => {
-                        if (vulnData.status === 'success' && vulnData.data.length === 0 && data.data.length === 0) {
-                            // No scans or vulnerabilities, trigger an active scan
-                            return fetch(`${API_BASE_URL}/scan/zap/active`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ url: 'http://192.168.231.128:8080/training.php' })
-                            })
-                            .then(response => response.json())
-                            .then(result => {
-                                if (result.status === 'success') {
-                                    return fetchScanHistory('zap', 50).then(() => fetchVulnerabilities('zap', 5000, 0));
-                                }
-                                throw new Error('Active scan initiation failed');
-                            });
+    function initZapPage() {
+        console.log("Initialisation de la page ZAP...");
+        
+        // Ajouter un indicateur de chargement
+        updateLoadingState(true);
+        showNotification("Chargement des données ZAP...", "info");
+        
+        // 1. Charger les statistiques des vulnérabilités
+        loadZapVulnerabilityStats(30);
+        
+        // 2. Charger l'historique des scans
+        fetchScanHistory('zap', 50)
+            .then(historyData => {
+                console.log("Historique ZAP chargé:", historyData);
+                
+                // 3. Charger les vulnérabilités détaillées
+                return fetchVulnerabilities('zap', 5000, 0)
+                    .then(vulnData => {
+                        console.log("Vulnérabilités ZAP chargées:", vulnData);
+                        
+                        if (vulnData.status === 'success') {
+                            // Mettre à jour le graphique par catégorie
+                            updateZapCategoryChart(vulnData.data);
                         }
+                        
+                        // Dans tous les cas, enlever l'indicateur de chargement
+                        updateLoadingState(false);
                     });
-                }
-            }).catch(error => {
-                console.error('Error in fetchScanHistory or fetchVulnerabilities:', error);
-                showNotification('Erreur lors de la récupération des données ZAP', 'error');
+            })
+            .catch(error => {
+                console.error("Erreur lors du chargement des données ZAP:", error);
+                showNotification("Erreur lors du chargement des données ZAP", "error");
+                updateLoadingState(false);
             });
-        } else if (attempts > 0) {
-            console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
-            setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
-        } else {
-            console.error('Échec de la récupération de l\'historique des scans ZAP : tableau non trouvé');
-            showNotification('Erreur : Impossible de charger l\'historique des scans ZAP', 'error');
         }
-    };
-
     tryFetchScanHistory();
     if (typeof loadZapData === 'function') {
         loadZapData();
