@@ -486,7 +486,33 @@ function initZapPage() {
     const tryFetchScanHistory = (attempts = 3, delay = 500) => {
         const table = document.querySelector('#zap-history-table tbody');
         if (table) {
-            fetchScanHistory('zap', 50); // Use 'zap' as the tool_name
+            fetchScanHistory('zap', 50).then(data => {
+                if (data.status === 'success') {
+                    // Fetch vulnerabilities after scan history
+                    return fetchVulnerabilities('zap', 5000, 0).then(vulnData => {
+                        if (vulnData.status === 'success' && vulnData.data.length === 0 && data.data.length === 0) {
+                            // No scans or vulnerabilities, trigger an active scan
+                            return fetch(`${API_BASE_URL}/scan/zap/active`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ url: 'http://192.168.231.128:8080/training.php' })
+                            })
+                            .then(response => response.json())
+                            .then(result => {
+                                if (result.status === 'success') {
+                                    return fetchScanHistory('zap', 50).then(() => fetchVulnerabilities('zap', 5000, 0));
+                                }
+                                throw new Error('Active scan initiation failed');
+                            });
+                        }
+                    });
+                }
+            }).catch(error => {
+                console.error('Error in fetchScanHistory or fetchVulnerabilities:', error);
+                showNotification('Erreur lors de la récupération des données ZAP', 'error');
+            });
         } else if (attempts > 0) {
             console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
             setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
@@ -497,11 +523,11 @@ function initZapPage() {
     };
 
     tryFetchScanHistory();
-
     if (typeof loadZapData === 'function') {
         loadZapData();
     }
 }
+
 /**
  * Initialisation de la page Selenium
  */
@@ -516,21 +542,22 @@ function initSeleniumPage() {
  * Récupération des vulnérabilités par outil
  */
 function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
-    // Pour la compatibilité avec le backend, convertir 'zap' en 'owasp_zap' pour l'API
-    const apiToolName = toolName === 'zap' ? 'owasp_zap' : toolName;
-    
-    fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${apiToolName}&limit=${limit}&offset=${offset}`)
+    const apiToolName = toolName === 'owasp_zap' ? 'zap' : toolName;
+    return fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${apiToolName}&limit=${limit}&offset=${offset}`)
         .then(response => response.json())
         .then(data => {
+            console.log(`Vulnerabilities for ${apiToolName}:`, data);
             if (data.status === 'success') {
-                updateVulnerabilitiesTable( apiToolName, data.data);
+                updateVulnerabilitiesTable(apiToolName, data.data);
             } else {
                 console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
             }
+            return data;
         })
         .catch(error => {
             console.error('Erreur lors de la requête API:', error);
             showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
+            throw error;
         });
 }
 
@@ -800,7 +827,7 @@ function updateVulnerabilityStatus(id, newStatus) {
  */
 function fetchScanHistory(toolName, limit = 10) {
     console.log(`Fetching scan history for ${toolName} with limit=${limit}`);
-    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
+    return fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`) // Ensure return
         .then(response => {
             if (!response.ok) {
                 return response.json().then(errorData => {
@@ -819,10 +846,12 @@ function fetchScanHistory(toolName, limit = 10) {
                 console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
                 showNotification(`L'API a signalé une erreur pour l'historique ${toolName}: ${data.message}`, 'warning');
             }
+            return data; // Return data for chaining
         })
         .catch(error => {
             console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
             showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
+            throw error; // Re-throw for chaining
         });
 }
     /**
@@ -832,7 +861,7 @@ function fetchScanHistory(toolName, limit = 10) {
         
         const tableId = `${toolName}-history-table`;
         
-        const adjustedTableId = toolName === 'owasp_zap' ? 'zap-history-table' : tableId; // Adjust for ZAP
+        const adjustedTableId = toolName === 'zap' ? 'zap-history-table' : tableId; // Adjust for ZAP
         const tableBody = document.querySelector(`#${adjustedTableId} tbody`);
         
         if (!tableBody) {
@@ -1580,9 +1609,14 @@ function fetchScanHistory(toolName, limit = 10) {
             fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&limit=5000&offset=0`)
                 .then(response => response.json())
                 .then(data => {
-                    console.log('ZAP vulnerabilities API response:', data); // Debug: Log the API response
+                    console.log('ZAP vulnerabilities API response:', data);
                     if (data.status === 'success') {
+                        if (data.data.length === 0) {
+                            console.warn("Aucune vulnérabilité retournée par l'API");
+                            showNotification("Aucune vulnérabilité trouvée pour ZAP", "info");
+                        }
                         const zapData = transformApiDataToZapFormat(data.data);
+                        console.log("Transformed ZAP Data:", zapData);
                         processZapData(zapData);
                         zapDataLoaded = true;
                     } else {
@@ -1603,58 +1637,94 @@ function fetchScanHistory(toolName, limit = 10) {
         }
     }
 
-    function processZapData(data) {
-        if (!data || !data.site || !data.site[0]) {
-            console.error("Format de données ZAP invalide");
+    function processZapData(zapData) {
+        if (!zapData || !zapData.site || zapData.site.length === 0) {
+            console.warn("Aucune donnée ZAP à traiter");
+            showNotification("Aucune donnée ZAP trouvée", "warning");
             return;
         }
     
-        const site = data.site[0];
-        const alerts = site.alerts || [];
-        
-        if (alerts.length === 0) {
+        const site = zapData.site[0]; // Extract the first site
+    
+        if (!site.alerts || site.alerts.length === 0) {
             console.warn("Aucune alerte ZAP trouvée");
+            showNotification("Aucune alerte ZAP détectée", "info");
+            return;
         }
-        
-        try {
-            updateScanInfo(data, site);
-            updateVulnerabilityCounts(alerts);
-            renderVulnerabilityCharts(alerts);
-            populateVulnerabilityTable(alerts);
-            
-            // Initialiser les gestionnaires d'événements
-            initializeEventHandlers(alerts);
-        } catch (e) {
-            console.error("Erreur lors du traitement des données ZAP:", e);
-            showNotification("Erreur lors du traitement des données ZAP", "error");
+    
+        // Determine the latest scan date
+        const latestScanDate = site.alerts.reduce((latest, alert) => {
+            const alertDate = new Date(alert.scanDate || alert.generated || 0); // Use the appropriate date field
+            return alertDate > latest ? alertDate : latest;
+        }, new Date(0));
+    
+        // Filter alerts to include only those from the latest scan date
+        const filteredAlerts = site.alerts.filter(alert => {
+            const alertDate = new Date(alert.scanDate || alert.generated || 0);
+            return alertDate.toDateString() === latestScanDate.toDateString();
+        });
+    
+        if (filteredAlerts.length === 0) {
+            console.warn("Aucune alerte ZAP trouvée pour la dernière date de scan");
+            showNotification("Aucune alerte ZAP détectée pour la dernière date de scan", "info");
+            return;
+        }
+    
+        // Group alerts by name, riskcode, and confidence
+        const groupedAlerts = {};
+        filteredAlerts.forEach(alert => {
+            const key = `${alert.name}-${alert.riskcode}-${alert.confidence}`; // Unique key for grouping
+            if (!groupedAlerts[key]) {
+                groupedAlerts[key] = {
+                    ...alert,
+                    count: 0,
+                    instances: []
+                };
+            }
+            groupedAlerts[key].count = parseInt(groupedAlerts[key].count) + parseInt(alert.count);
+            groupedAlerts[key].instances.push(...alert.instances);
+        });
+    
+        // Convert grouped alerts back to an array
+        const alerts = Object.values(groupedAlerts);
+    
+        // Update the vulnerability table
+        populateVulnerabilityTable(alerts);
+    
+        // Update charts and other elements if necessary
+        if (typeof updateCharts === 'function') {
+            updateCharts(alerts);
+        }
+    
+        // Update scan information
+        if (typeof updateScanInfo === 'function') {
+            updateScanInfo(zapData, site);
         }
     }
     
     function updateScanInfo(data, site) {
-        // Vérifier si les éléments nécessaires existent
-        const pageTitle = document.querySelector('#zap-page .page-title');
-        if (!pageTitle) {
-            console.warn("Élément .page-title non trouvé dans #zap-page");
+        if (!site) {
+            console.error("Site non défini dans les données ZAP");
             return;
         }
-        
-        // Mise à jour des informations générales du scan
-        pageTitle.innerHTML = `OWASP ZAP - Scanner de vulnérabilités Web <small>(v${data["@version"]})</small>`;
-        
-        // Ajouter des détails supplémentaires 
+    
+        const pageTitle = document.querySelector('#zap-page .page-title');
+        if (pageTitle) {
+            pageTitle.innerHTML = `OWASP ZAP - Scanner de vulnérabilités Web <small>(v${data["@version"] || "N/A"})</small>`;
+        }
+    
         const existingScanInfo = document.querySelector('#zap-page .scan-info');
         if (existingScanInfo) {
             existingScanInfo.remove();
         }
-        
+    
         const scanInfoEl = document.createElement('div');
         scanInfoEl.className = 'scan-info';
         scanInfoEl.innerHTML = `
-            <p><strong>Site scanné:</strong> ${site["@name"]}</p>
-            <p><strong>Date du scan:</strong> ${data["@generated"]}</p>
+            <p><strong>Site scanné:</strong> ${site["@name"] || "Inconnu"}</p>
+            <p><strong>Date du scan:</strong> ${data["@generated"] || "Inconnue"}</p>
         `;
-        
-        // Insérer après le header de la page
+    
         const pageHeader = document.querySelector('#zap-page .page-header');
         if (pageHeader) {
             pageHeader.parentNode.insertBefore(scanInfoEl, pageHeader.nextSibling);
@@ -1665,7 +1735,6 @@ function fetchScanHistory(toolName, limit = 10) {
             }
         }
     }
-    
     function updateVulnerabilityCounts(alerts) {
         // Comptage des vulnérabilités par niveau de sévérité
         const severityCounts = {
@@ -1799,7 +1868,72 @@ function fetchScanHistory(toolName, limit = 10) {
             console.error("Erreur lors de la création des graphiques ZAP:", e);
         }
     }
+    function showVulnerabilityDetails(alert) {
+        // Create the modal HTML
+        const modal = document.createElement('div');
+        modal.classList.add('modal');
+        modal.style.display = 'block';
+        modal.style.position = 'fixed';
+        modal.style.top = '10%';
+        modal.style.left = '50%';
+        modal.style.transform = 'translateX(-50%)';
+        modal.style.backgroundColor = '#fff';
+        modal.style.padding = '20px';
+        modal.style.borderRadius = '5px';
+        modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
+        modal.style.zIndex = '1000';
+        modal.style.maxWidth = '500px';
+        modal.style.width = '90%';
     
+        // Build the instances HTML (list all URLs)
+        const instancesHtml = alert.instances && alert.instances.length > 0
+            ? alert.instances.map(instance => `
+                <li>
+                    <strong>URL:</strong> ${instance.uri || 'N/A'}<br>
+                    <strong>Méthode:</strong> ${instance.method || 'N/A'}
+                </li>
+            `).join('')
+            : '<li>Aucune instance trouvée</li>';
+    
+        // Modal content
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h3>Détails de la vulnérabilité</h3>
+                <button class="close-modal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4>${alert.name}</h4>
+                <p><strong>Description:</strong><br>${alert.desc || 'Aucune description disponible'}</p>
+                <p><strong>Solution:</strong><br>${alert.solution || 'Aucune solution fournie'}</p>
+                <p><strong>Instances:</strong></p>
+                <ul>${instancesHtml}</ul>
+            </div>
+        `;
+    
+        // Add the modal to the page
+        document.body.appendChild(modal);
+    
+        // Add a backdrop
+        const backdrop = document.createElement('div');
+        backdrop.classList.add('modal-backdrop');
+        backdrop.style.position = 'fixed';
+        backdrop.style.top = '0';
+        backdrop.style.left = '0';
+        backdrop.style.width = '100%';
+        backdrop.style.height = '100%';
+        backdrop.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        backdrop.style.zIndex = '999';
+        document.body.appendChild(backdrop);
+    
+        // Close the modal when the close button or backdrop is clicked
+        const closeModal = () => {
+            modal.remove();
+            backdrop.remove();
+        };
+    
+        modal.querySelector('.close-modal').addEventListener('click', closeModal);
+        backdrop.addEventListener('click', closeModal);
+    }
     function populateVulnerabilityTable(alerts) {
         const tableBody = document.getElementById('zap-vulnerabilities-table-body');
         if (!tableBody) {
@@ -1810,11 +1944,16 @@ function fetchScanHistory(toolName, limit = 10) {
         // Vider la table
         tableBody.innerHTML = '';
         
+        // Handle empty state
+        if (!alerts || alerts.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
+            return;
+        }
+        
         // Remplir avec les nouvelles données
         alerts.forEach((alert, index) => {
             const row = document.createElement('tr');
             
-            // Déterminer la classe CSS basée sur la sévérité
             let severityClass = '';
             let severityText = '';
             
@@ -1851,6 +1990,14 @@ function fetchScanHistory(toolName, limit = 10) {
             `;
             
             tableBody.appendChild(row);
+        });
+    
+        // Add event listeners for the details buttons
+        document.querySelectorAll('.view-details').forEach(button => {
+            button.addEventListener('click', function() {
+                const index = this.getAttribute('data-alert-index');
+                showVulnerabilityDetails(alerts[index]);
+            });
         });
     }
     
