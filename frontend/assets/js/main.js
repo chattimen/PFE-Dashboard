@@ -7,6 +7,17 @@ const API_BASE_URL = '/api';
 let currentPage = 'dashboard';
 let darkMode = localStorage.getItem('darkMode') === 'true';
 let zapDataLoaded = false;
+// Track current page for each table
+const paginationState = {
+    'trivy-vulnerabilities': { currentPage: 1, totalItems: 0 },
+    'trivy-history': { currentPage: 1, totalItems: 0 },
+    'sonarqube-vulnerabilities': { currentPage: 1, totalItems: 0 },
+    'sonarqube-history': { currentPage: 1, totalItems: 0 },
+    'zap-vulnerabilities': { currentPage: 1, totalItems: 0 },
+    'zap-history': { currentPage: 1, totalItems: 0 },
+    'selenium-failed-tests': { currentPage: 1, totalItems: 0 },
+    'selenium-history': { currentPage: 1, totalItems: 0 }
+};
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
     // Appliquer le thème
@@ -462,11 +473,19 @@ function updateChartTheme(chart) {
  */
 async function initTrivyPage() {
     try {
+        // Reset pagination state
+        paginationState['trivy-vulnerabilities'].currentPage = 1;
+        paginationState['trivy-history'].currentPage = 1;
+
         // Charger les vulnérabilités de Trivy
-        await fetchVulnerabilities('trivy');
+        await fetchVulnerabilities('trivy', 1, 10);
         
         // Charger l'historique des scans Trivy
-        await fetchScanHistory('trivy');
+        await fetchScanHistory('trivy', 1, 10);
+
+        // Setup pagination event listeners
+        setupPagination('trivy-vulnerabilities', 'trivy-vuln', fetchVulnerabilities);
+        setupPagination('trivy-history', 'trivy-history', fetchScanHistory);
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page Trivy:', error);
         showNotification('Erreur lors du chargement des données Trivy', 'error');
@@ -477,11 +496,19 @@ async function initTrivyPage() {
  */
 async function initSonarQubePage() {
     try {
+        // Reset pagination state
+        paginationState['sonarqube-vulnerabilities'].currentPage = 1;
+        paginationState['sonarqube-history'].currentPage = 1;
+
         // Charger les vulnérabilités de SonarQube
-        await fetchVulnerabilities('sonarqube');
+        await fetchVulnerabilities('sonarqube', 1, 10);
         
         // Charger l'historique des scans SonarQube
-        await fetchScanHistory('sonarqube');
+        await fetchScanHistory('sonarqube', 1, 10);
+
+        // Setup pagination event listeners
+        setupPagination('sonarqube-vulnerabilities', 'sonar', fetchVulnerabilities);
+        setupPagination('sonarqube-history', 'sonarqube-history', fetchScanHistory);
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page SonarQube:', error);
         showNotification('Erreur lors du chargement des données SonarQube', 'error');
@@ -492,10 +519,15 @@ async function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
+    // Reset pagination state
+    paginationState['zap-vulnerabilities'].currentPage = 1;
+    paginationState['zap-history'].currentPage = 1;
+
     const tryFetchScanHistory = (attempts = 3, delay = 500) => {
         const table = document.querySelector('#zap-history-table tbody');
         if (table) {
-            fetchScanHistory('zap', 50); // Use 'zap' as the tool_name
+            fetchScanHistory('zap', 1, 10);
+            setupPagination('zap-history', 'zap-history', fetchScanHistory);
         } else if (attempts > 0) {
             console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
             setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
@@ -507,25 +539,92 @@ function initZapPage() {
 
     tryFetchScanHistory();
 
-    if (typeof loadZapData === 'function') {
-        loadZapData();
-    }
+    // Load ZAP vulnerabilities with pagination
+    fetchVulnerabilities('zap', 1, 10);
+    setupPagination('zap-vulnerabilities', 'zap', fetchVulnerabilities);
 }
 /**
  * Initialisation de la page Selenium
  */
 function initSeleniumPage() {
+    // Reset pagination state
+    paginationState['selenium-failed-tests'].currentPage = 1;
+    paginationState['selenium-history'].currentPage = 1;
+
     // Charger les tests Selenium si la table existe
     if (document.querySelector('#selenium-history-table tbody')) {
-        fetchScanHistory('selenium');
+        fetchScanHistory('selenium', 1, 10);
+        setupPagination('selenium-history', 'selenium-history', fetchScanHistory);
+    }
+
+    // For vulnerabilities (failed tests), assuming fetchVulnerabilities is used
+    fetchVulnerabilities('selenium', 1, 10);
+    setupPagination('selenium-failed-tests', 'selenium', fetchVulnerabilities);
+}
+
+
+/**
+ * Setup pagination event listeners for a given table
+ */
+function setupPagination(tableId, buttonPrefix, fetchFunction) {
+    const prevButton = document.getElementById(`${buttonPrefix}-prev-page`);
+    const nextButton = document.getElementById(`${buttonPrefix}-next-page`);
+
+    if (prevButton && nextButton) {
+        prevButton.addEventListener('click', () => {
+            console.log(`Previous button clicked for ${tableId}, current page: ${paginationState[tableId].currentPage}`);
+            if (paginationState[tableId].currentPage > 1) {
+                paginationState[tableId].currentPage--;
+                console.log(`Fetching page ${paginationState[tableId].currentPage} for ${tableId}`);
+                fetchFunction(buttonPrefix === 'selenium' ? 'selenium' : buttonPrefix, paginationState[tableId].currentPage, 10);
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            console.log(`Next button clicked for ${tableId}, current page: ${paginationState[tableId].currentPage}`);
+            const totalPages = Math.ceil(paginationState[tableId].totalItems / 10);
+            if (paginationState[tableId].currentPage < totalPages) {
+                paginationState[tableId].currentPage++;
+                console.log(`Fetching page ${paginationState[tableId].currentPage} for ${tableId}`);
+                fetchFunction(buttonPrefix === 'selenium' ? 'selenium' : buttonPrefix, paginationState[tableId].currentPage, 10);
+            }
+        });
+    } else {
+        console.error(`Pagination buttons not found for ${tableId}. Prev: ${prevButton}, Next: ${nextButton}`);
+    }
+}
+
+/**
+ * Update pagination controls based on current page and total items
+ */
+function updatePaginationControls(tableId, buttonPrefix, totalItems) {
+    const pageInfo = document.getElementById(`${buttonPrefix}-page-info`);
+    const prevButton = document.getElementById(`${buttonPrefix}-prev-page`);
+    const nextButton = document.getElementById(`${buttonPrefix}-next-page`);
+
+    paginationState[tableId].totalItems = totalItems;
+    const totalPages = Math.ceil(totalItems / 10);
+    const currentPage = paginationState[tableId].currentPage;
+
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${currentPage} sur ${totalPages || 1}`;
+    }
+
+    if (prevButton) {
+        prevButton.disabled = currentPage === 1;
+    }
+
+    if (nextButton) {
+        nextButton.disabled = currentPage >= totalPages;
     }
 }
 
 /**
  * Récupération des vulnérabilités par outil
  */
-async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
+async function fetchVulnerabilities(toolName, page = 1, limit = 10) {
     try {
+        const offset = (page - 1) * limit;
         let url = `${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`;
 
         // Fetch only the latest scan's vulnerabilities for Trivy and SonarQube
@@ -544,7 +643,35 @@ async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
 
         console.log(`${toolName} vulnerabilities API response:`, data);
         if (data.status === 'success') {
-            updateVulnerabilitiesTable(toolName, data.data);
+            let vulnerabilities = data.data;
+            let total = data.total;
+
+            // For ZAP, enforce client-side pagination
+            if (toolName === 'zap') {
+                // Slice the data to enforce pagination
+                vulnerabilities = data.data.slice(offset, offset + limit);
+                total = data.total; // Keep the total for pagination controls
+
+                // Update the table with the paginated data for ZAP
+                updateVulnerabilitiesTable('zap-vulnerabilities-table', vulnerabilities);
+
+                // Call processZapData with the full dataset if needed, but ensure it doesn't override the table
+                const zapData = transformApiDataToZapFormat(vulnerabilities); // Transform only the paginated data
+                processZapData(zapData); // Process the paginated data
+            } else {
+                // For other tools, update the table with the fetched data
+                updateVulnerabilitiesTable(
+                    toolName === 'selenium' ? 'selenium-failed-tests-table' : `${toolName}-vulnerabilities-table`,
+                    vulnerabilities
+                );
+            }
+
+            // Update pagination controls with the total count
+            updatePaginationControls(
+                toolName === 'selenium' ? 'selenium-failed-tests' : `${toolName}-vulnerabilities`,
+                toolName === 'selenium' ? 'selenium' : toolName,
+                total
+            );
         } else {
             console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
             showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
@@ -557,8 +684,7 @@ async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
 /**
  * Mise à jour de la table des vulnérabilités
  */
-function updateVulnerabilitiesTable( toolName ,vulnerabilities) {
-    const tableId = `${toolName}-vulnerabilities-table`;
+function updateVulnerabilitiesTable(tableId, vulnerabilities) {
     const tableBody = document.querySelector(`#${tableId} tbody`);
     
     if (!tableBody) {
@@ -576,28 +702,60 @@ function updateVulnerabilitiesTable( toolName ,vulnerabilities) {
         // Définir la classe de sévérité
         row.classList.add(`severity-${vuln.severity}`);
         
-        row.innerHTML = `
-            <td>${vuln.title}</td>
-            <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
-            <td>${vuln.location || 'N/A'}</td>
-            <td>${vuln.category || 'N/A'}</td>
-            <td>${formatDate(vuln.last_detected)}</td>
-            <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
-            <td>
-                <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
-                    <i class="fas fa-info-circle"></i>
-                </button>
-                <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
-                    <i class="fas fa-check"></i>
-                </button>
-            </td>
-        `;
+        if (tableId === 'selenium-failed-tests') {
+            row.innerHTML = `
+                <td>${vuln.title || 'N/A'}</td>
+                <td>${vuln.suite || 'N/A'}</td>
+                <td>${formatDate(vuln.last_detected)}</td>
+                <td>${vuln.duration || 'N/A'}</td>
+                <td>${vuln.error || 'N/A'}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </td>
+            `;
+        } else if (tableId === 'sonarqube-vulnerabilities') {
+            row.innerHTML = `
+                <td>${vuln.title}</td>
+                <td>${vuln.type || 'N/A'}</td>
+                <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
+                <td>${vuln.location || 'N/A'}</td>
+                <td>${vuln.line || 'N/A'}</td>
+                <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </td>
+            `;
+        } else {
+            row.innerHTML = `
+                <td>${vuln.title}</td>
+                <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
+                <td>${vuln.location || 'N/A'}</td>
+                <td>${vuln.category || 'N/A'}</td>
+                <td>${formatDate(vuln.last_detected)}</td>
+                <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </td>
+            `;
+        }
         
         tableBody.appendChild(row);
     });
     
     // Mettre à jour le compteur s'il existe
-    const countElement = document.getElementById(`${toolName}-vulnerability-count`);
+    const countElement = document.getElementById(`${tableId}-vulnerability-count`);
     if (countElement) {
         countElement.textContent = vulnerabilities.length;
     }
@@ -839,9 +997,10 @@ async function fetchLatestScanId(toolName) {
 /**
  * Récupération de l'historique des scans par outil
  */
-function fetchScanHistory(toolName, limit = 10) {
-    console.log(`Fetching scan history for ${toolName} with limit=${limit}`);
-    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
+function fetchScanHistory(toolName, page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
+    console.log(`Fetching scan history for ${toolName} with limit=${limit}, offset=${offset}`);
+    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}&offset=${offset}`)
         .then(response => {
             if (!response.ok) {
                 return response.json().then(errorData => {
@@ -853,9 +1012,10 @@ function fetchScanHistory(toolName, limit = 10) {
             return response.json();
         })
         .then(data => {
-            console.log(`Scan history response for ${toolName}:`, data);
+            console.log(`${toolName} scan history API response:`, data);
             if (data.status === 'success') {
                 updateScanHistoryTable(data.data, toolName);
+                updatePaginationControls(`${toolName}-history`, `${toolName}-history`, data.total);
             } else {
                 console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
                 showNotification(`L'API a signalé une erreur pour l'historique ${toolName}: ${data.message}`, 'warning');

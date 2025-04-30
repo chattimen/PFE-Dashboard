@@ -276,7 +276,33 @@ body.dark-mode .navbar-nav a {
 body.dark-mode .navbar-nav a:hover {
     background-color: rgba(255, 255, 255, 0.05);
 }
+/* Pagination Styles */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
 
+.pagination .btn {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.pagination .btn:disabled {
+    background-color: var(--secondary-color);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination span {
+    font-size: 14px;
+    color: var(--light-text);
+}
+
+body.dark-mode .pagination span {
+    color: var(--dark-text);
+}
 /* Pages */
 .page-content {
     display: none;
