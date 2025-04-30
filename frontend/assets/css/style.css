@@ -299,19 +299,50 @@ body.dark-mode .navbar-nav a:hover {
 
 /* Tableaux */
 .table-container {
+    width: 100%;
     overflow-x: auto;
 }
 
 .table {
     width: 100%;
+    max-width: 100%; /* Prevent the table from exceeding the container's width */
     border-collapse: collapse;
+    margin: 20px 0;
 }
 
-.table th,
-.table td {
-    padding: 12px 15px;
+.table th, .table td {
+    border: 1px solid #ddd;
+    padding: 8px;
     text-align: left;
-    border-bottom: 1px solid var(--light-border);
+    white-space: normal; /* Allow text to wrap */
+    word-wrap: break-word; /* Break long words to wrap */
+}
+#sonarqube-vulnerabilities-table th:nth-child(1), /* Titre */
+#sonarqube-vulnerabilities-table td:nth-child(1) {
+    max-width: 200px; /* Limit the width of the "Titre" column */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Add ellipsis (...) for truncated text */
+}
+#sonarqube-vulnerabilities-table th:nth-child(2),
+#sonarqube-vulnerabilities-table td:nth-child(2) {
+    width: 100px; /* Set a fixed width for the "Type" column */
+    max-width: 100px; /* Ensure it doesn't expand beyond this width */
+    overflow: hidden; /* Hide overflow content */
+    text-overflow: ellipsis; /* Add ellipsis (...) for truncated text */
+    white-space: nowrap; /* Prevent wrapping to keep the column narrow */
+}
+#sonarqube-vulnerabilities-table th:nth-child(3), /* Fichier */
+#sonarqube-vulnerabilities-table td:nth-child(3) {
+    max-width: 250px; /* Limit the width of the "Fichier" column */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Ensure other columns can wrap text if needed */
+#sonarqube-vulnerabilities-table th:not(:nth-child(2)),
+#sonarqube-vulnerabilities-table td:not(:nth-child(2)) {
+    white-space: normal;
+    word-wrap: break-word;
 }
 
 .table thead th {
@@ -324,15 +355,14 @@ body.dark-mode .navbar-nav a:hover {
 }
 
 /* Badges et statuts */
-.badge {
+.table .badge {
     display: inline-block;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-radius: 12px;
     font-size: 12px;
-    font-weight: 500;
-    color: white;
+    font-weight: bold;
+    white-space: nowrap; /* Prevent badges from wrapping */
 }
-
 .severity-critical {
     background-color: var(--severity-critical);
 }
@@ -380,7 +410,9 @@ body.dark-mode .navbar-nav a:hover {
 .status-failed {
     background-color: var(--scan-failed);
 }
-
+.table .btn {
+    white-space: nowrap; /* Prevent buttons from wrapping */
+}
 /* Boutons */
 .btn {
     display: inline-block;
