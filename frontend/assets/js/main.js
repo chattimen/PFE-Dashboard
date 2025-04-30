@@ -473,6 +473,7 @@ function updateChartTheme(chart) {
  */
 async function initTrivyPage() {
     try {
+<<<<<<< HEAD
         // Reset pagination state
         paginationState['trivy-vulnerabilities'].currentPage = 1;
         paginationState['trivy-history'].currentPage = 1;
@@ -486,6 +487,13 @@ async function initTrivyPage() {
         // Setup pagination event listeners
         setupPagination('trivy-vulnerabilities', 'trivy-vuln', fetchVulnerabilities);
         setupPagination('trivy-history', 'trivy-history', fetchScanHistory);
+=======
+        // Charger les vulnérabilités de Trivy
+        await fetchVulnerabilities('trivy');
+        
+        // Charger l'historique des scans Trivy
+        await fetchScanHistory('trivy');
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page Trivy:', error);
         showNotification('Erreur lors du chargement des données Trivy', 'error');
@@ -496,6 +504,7 @@ async function initTrivyPage() {
  */
 async function initSonarQubePage() {
     try {
+<<<<<<< HEAD
         // Reset pagination state
         paginationState['sonarqube-vulnerabilities'].currentPage = 1;
         paginationState['sonarqube-history'].currentPage = 1;
@@ -509,6 +518,13 @@ async function initSonarQubePage() {
         // Setup pagination event listeners
         setupPagination('sonarqube-vulnerabilities', 'sonar', fetchVulnerabilities);
         setupPagination('sonarqube-history', 'sonarqube-history', fetchScanHistory);
+=======
+        // Charger les vulnérabilités de SonarQube
+        await fetchVulnerabilities('sonarqube');
+        
+        // Charger l'historique des scans SonarQube
+        await fetchScanHistory('sonarqube');
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page SonarQube:', error);
         showNotification('Erreur lors du chargement des données SonarQube', 'error');
@@ -526,8 +542,12 @@ function initZapPage() {
     const tryFetchScanHistory = (attempts = 3, delay = 500) => {
         const table = document.querySelector('#zap-history-table tbody');
         if (table) {
+<<<<<<< HEAD
             fetchScanHistory('zap', 1, 10);
             setupPagination('zap-history', 'zap-history', fetchScanHistory);
+=======
+            fetchScanHistory('zap', 50); // Use 'zap' as the tool_name
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         } else if (attempts > 0) {
             console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
             setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
@@ -539,9 +559,15 @@ function initZapPage() {
 
     tryFetchScanHistory();
 
+<<<<<<< HEAD
     // Load ZAP vulnerabilities with pagination
     fetchVulnerabilities('zap', 1, 10);
     setupPagination('zap-vulnerabilities', 'zap', fetchVulnerabilities);
+=======
+    if (typeof loadZapData === 'function') {
+        loadZapData();
+    }
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
 }
 /**
  * Initialisation de la page Selenium
@@ -622,9 +648,14 @@ function updatePaginationControls(tableId, buttonPrefix, totalItems) {
 /**
  * Récupération des vulnérabilités par outil
  */
+<<<<<<< HEAD
 async function fetchVulnerabilities(toolName, page = 1, limit = 10) {
     try {
         const offset = (page - 1) * limit;
+=======
+async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
+    try {
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         let url = `${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`;
 
         // Fetch only the latest scan's vulnerabilities for Trivy and SonarQube
@@ -643,6 +674,7 @@ async function fetchVulnerabilities(toolName, page = 1, limit = 10) {
 
         console.log(`${toolName} vulnerabilities API response:`, data);
         if (data.status === 'success') {
+<<<<<<< HEAD
             let vulnerabilities = data.data;
             let total = data.total;
 
@@ -672,6 +704,9 @@ async function fetchVulnerabilities(toolName, page = 1, limit = 10) {
                 toolName === 'selenium' ? 'selenium' : toolName,
                 total
             );
+=======
+            updateVulnerabilitiesTable(toolName, data.data);
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         } else {
             console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
             showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
@@ -997,10 +1032,16 @@ async function fetchLatestScanId(toolName) {
 /**
  * Récupération de l'historique des scans par outil
  */
+<<<<<<< HEAD
 function fetchScanHistory(toolName, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
     console.log(`Fetching scan history for ${toolName} with limit=${limit}, offset=${offset}`);
     fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}&offset=${offset}`)
+=======
+function fetchScanHistory(toolName, limit = 10) {
+    console.log(`Fetching scan history for ${toolName} with limit=${limit}`);
+    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
+>>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         .then(response => {
             if (!response.ok) {
                 return response.json().then(errorData => {
