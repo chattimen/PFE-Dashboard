@@ -473,27 +473,11 @@ function updateChartTheme(chart) {
  */
 async function initTrivyPage() {
     try {
-<<<<<<< HEAD
-        // Reset pagination state
-        paginationState['trivy-vulnerabilities'].currentPage = 1;
-        paginationState['trivy-history'].currentPage = 1;
-
-        // Charger les vulnérabilités de Trivy
-        await fetchVulnerabilities('trivy', 1, 10);
-        
-        // Charger l'historique des scans Trivy
-        await fetchScanHistory('trivy', 1, 10);
-
-        // Setup pagination event listeners
-        setupPagination('trivy-vulnerabilities', 'trivy-vuln', fetchVulnerabilities);
-        setupPagination('trivy-history', 'trivy-history', fetchScanHistory);
-=======
         // Charger les vulnérabilités de Trivy
         await fetchVulnerabilities('trivy');
         
         // Charger l'historique des scans Trivy
         await fetchScanHistory('trivy');
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page Trivy:', error);
         showNotification('Erreur lors du chargement des données Trivy', 'error');
@@ -504,27 +488,11 @@ async function initTrivyPage() {
  */
 async function initSonarQubePage() {
     try {
-<<<<<<< HEAD
-        // Reset pagination state
-        paginationState['sonarqube-vulnerabilities'].currentPage = 1;
-        paginationState['sonarqube-history'].currentPage = 1;
-
-        // Charger les vulnérabilités de SonarQube
-        await fetchVulnerabilities('sonarqube', 1, 10);
-        
-        // Charger l'historique des scans SonarQube
-        await fetchScanHistory('sonarqube', 1, 10);
-
-        // Setup pagination event listeners
-        setupPagination('sonarqube-vulnerabilities', 'sonar', fetchVulnerabilities);
-        setupPagination('sonarqube-history', 'sonarqube-history', fetchScanHistory);
-=======
         // Charger les vulnérabilités de SonarQube
         await fetchVulnerabilities('sonarqube');
         
         // Charger l'historique des scans SonarQube
         await fetchScanHistory('sonarqube');
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page SonarQube:', error);
         showNotification('Erreur lors du chargement des données SonarQube', 'error');
@@ -542,12 +510,7 @@ function initZapPage() {
     const tryFetchScanHistory = (attempts = 3, delay = 500) => {
         const table = document.querySelector('#zap-history-table tbody');
         if (table) {
-<<<<<<< HEAD
-            fetchScanHistory('zap', 1, 10);
-            setupPagination('zap-history', 'zap-history', fetchScanHistory);
-=======
             fetchScanHistory('zap', 50); // Use 'zap' as the tool_name
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         } else if (attempts > 0) {
             console.warn(`Tableau #zap-history-table tbody non trouvé, nouvelle tentative (${attempts} restantes)`);
             setTimeout(() => tryFetchScanHistory(attempts - 1, delay), delay);
@@ -559,103 +522,25 @@ function initZapPage() {
 
     tryFetchScanHistory();
 
-<<<<<<< HEAD
-    // Load ZAP vulnerabilities with pagination
-    fetchVulnerabilities('zap', 1, 10);
-    setupPagination('zap-vulnerabilities', 'zap', fetchVulnerabilities);
-=======
     if (typeof loadZapData === 'function') {
         loadZapData();
     }
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
 }
 /**
  * Initialisation de la page Selenium
  */
 function initSeleniumPage() {
-    // Reset pagination state
-    paginationState['selenium-failed-tests'].currentPage = 1;
-    paginationState['selenium-history'].currentPage = 1;
-
     // Charger les tests Selenium si la table existe
     if (document.querySelector('#selenium-history-table tbody')) {
-        fetchScanHistory('selenium', 1, 10);
-        setupPagination('selenium-history', 'selenium-history', fetchScanHistory);
-    }
-
-    // For vulnerabilities (failed tests), assuming fetchVulnerabilities is used
-    fetchVulnerabilities('selenium', 1, 10);
-    setupPagination('selenium-failed-tests', 'selenium', fetchVulnerabilities);
-}
-
-
-/**
- * Setup pagination event listeners for a given table
- */
-function setupPagination(tableId, buttonPrefix, fetchFunction) {
-    const prevButton = document.getElementById(`${buttonPrefix}-prev-page`);
-    const nextButton = document.getElementById(`${buttonPrefix}-next-page`);
-
-    if (prevButton && nextButton) {
-        prevButton.addEventListener('click', () => {
-            console.log(`Previous button clicked for ${tableId}, current page: ${paginationState[tableId].currentPage}`);
-            if (paginationState[tableId].currentPage > 1) {
-                paginationState[tableId].currentPage--;
-                console.log(`Fetching page ${paginationState[tableId].currentPage} for ${tableId}`);
-                fetchFunction(buttonPrefix === 'selenium' ? 'selenium' : buttonPrefix, paginationState[tableId].currentPage, 10);
-            }
-        });
-
-        nextButton.addEventListener('click', () => {
-            console.log(`Next button clicked for ${tableId}, current page: ${paginationState[tableId].currentPage}`);
-            const totalPages = Math.ceil(paginationState[tableId].totalItems / 10);
-            if (paginationState[tableId].currentPage < totalPages) {
-                paginationState[tableId].currentPage++;
-                console.log(`Fetching page ${paginationState[tableId].currentPage} for ${tableId}`);
-                fetchFunction(buttonPrefix === 'selenium' ? 'selenium' : buttonPrefix, paginationState[tableId].currentPage, 10);
-            }
-        });
-    } else {
-        console.error(`Pagination buttons not found for ${tableId}. Prev: ${prevButton}, Next: ${nextButton}`);
-    }
-}
-
-/**
- * Update pagination controls based on current page and total items
- */
-function updatePaginationControls(tableId, buttonPrefix, totalItems) {
-    const pageInfo = document.getElementById(`${buttonPrefix}-page-info`);
-    const prevButton = document.getElementById(`${buttonPrefix}-prev-page`);
-    const nextButton = document.getElementById(`${buttonPrefix}-next-page`);
-
-    paginationState[tableId].totalItems = totalItems;
-    const totalPages = Math.ceil(totalItems / 10);
-    const currentPage = paginationState[tableId].currentPage;
-
-    if (pageInfo) {
-        pageInfo.textContent = `Page ${currentPage} sur ${totalPages || 1}`;
-    }
-
-    if (prevButton) {
-        prevButton.disabled = currentPage === 1;
-    }
-
-    if (nextButton) {
-        nextButton.disabled = currentPage >= totalPages;
+        fetchScanHistory('selenium');
     }
 }
 
 /**
  * Récupération des vulnérabilités par outil
  */
-<<<<<<< HEAD
-async function fetchVulnerabilities(toolName, page = 1, limit = 10) {
-    try {
-        const offset = (page - 1) * limit;
-=======
 async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
     try {
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         let url = `${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`;
 
         // Fetch only the latest scan's vulnerabilities for Trivy and SonarQube
@@ -674,39 +559,7 @@ async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
 
         console.log(`${toolName} vulnerabilities API response:`, data);
         if (data.status === 'success') {
-<<<<<<< HEAD
-            let vulnerabilities = data.data;
-            let total = data.total;
-
-            // For ZAP, enforce client-side pagination
-            if (toolName === 'zap') {
-                // Slice the data to enforce pagination
-                vulnerabilities = data.data.slice(offset, offset + limit);
-                total = data.total; // Keep the total for pagination controls
-
-                // Update the table with the paginated data for ZAP
-                updateVulnerabilitiesTable('zap-vulnerabilities-table', vulnerabilities);
-
-                // Call processZapData with the full dataset if needed, but ensure it doesn't override the table
-                const zapData = transformApiDataToZapFormat(vulnerabilities); // Transform only the paginated data
-                processZapData(zapData); // Process the paginated data
-            } else {
-                // For other tools, update the table with the fetched data
-                updateVulnerabilitiesTable(
-                    toolName === 'selenium' ? 'selenium-failed-tests-table' : `${toolName}-vulnerabilities-table`,
-                    vulnerabilities
-                );
-            }
-
-            // Update pagination controls with the total count
-            updatePaginationControls(
-                toolName === 'selenium' ? 'selenium-failed-tests' : `${toolName}-vulnerabilities`,
-                toolName === 'selenium' ? 'selenium' : toolName,
-                total
-            );
-=======
             updateVulnerabilitiesTable(toolName, data.data);
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         } else {
             console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
             showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
@@ -1032,16 +885,15 @@ async function fetchLatestScanId(toolName) {
 /**
  * Récupération de l'historique des scans par outil
  */
-<<<<<<< HEAD
+
 function fetchScanHistory(toolName, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
     console.log(`Fetching scan history for ${toolName} with limit=${limit}, offset=${offset}`);
     fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}&offset=${offset}`)
-=======
+
 function fetchScanHistory(toolName, limit = 10) {
     console.log(`Fetching scan history for ${toolName} with limit=${limit}`);
     fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
->>>>>>> 501d84d (fixing table and visulazing the lastest scans fixing also the stats bar in each technology used)
         .then(response => {
             if (!response.ok) {
                 return response.json().then(errorData => {
@@ -1066,7 +918,7 @@ function fetchScanHistory(toolName, limit = 10) {
             console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
             showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
         });
-}
+}}
     /**
      * Mise à jour de la table d'historique des scans
      */
