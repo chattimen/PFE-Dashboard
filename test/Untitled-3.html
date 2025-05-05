@@ -1,0 +1,69 @@
+<!-- Ajout d'un élément de pagination pour la table des derniers scans sur la page dashboard -->
+<!-- À ajouter après la table latest-scans-table dans dashboard-page -->
+<div class="pagination mt-2" id="latest-scans-pagination">
+    <button id="latest-scans-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
+    <span id="latest-scans-page-info">Page 1</span>
+    <button id="latest-scans-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+</div>
+
+<!-- Modifications pour le titre de la page dashboard afin d'indiquer qu'on affiche les vulnérabilités du dernier scan -->
+<!-- Remplacer le titre actuel dans dashboard-page -->
+<h2 class="page-title">Tableau de bord <small>(Vulnérabilités du dernier scan)</small></h2>
+
+<!-- Informations du dernier scan - à ajouter après page-header dans dashboard-page -->
+<div class="scan-info">
+    <div>
+        <p><strong>Dernier scan:</strong> <span id="latest-scan-date">--/--/----</span></p>
+        <p><strong>Outil:</strong> <span id="latest-scan-tool">--</span></p>
+    </div>
+    <div>
+        <p><strong>Cible:</strong> <span id="latest-scan-target">--</span></p>
+        <p><strong>Statut:</strong> <span id="latest-scan-status" class="badge">--</span></p>
+    </div>
+</div>
+
+<!-- Mise à jour du gestionnaire d'événements pour les sélecteurs de période des différentes sections -->
+<!-- Script à ajouter à la fin du body -->
+<script>
+    // Gestion des changements de période pour tous les sélecteurs
+    document.addEventListener('DOMContentLoaded', function() {
+        const periodSelectors = [
+            'period-selector',
+            'trivy-period-selector',
+            'sonar-period-selector', 
+            'zap-period-selector',
+            'selenium-period-selector'
+        ];
+        
+        periodSelectors.forEach(function(selectorId) {
+            const selector = document.getElementById(selectorId);
+            if (selector) {
+                selector.addEventListener('change', function() {
+                    // Réinitialiser la pagination
+                    const toolName = selectorId.replace('-period-selector', '');
+                    
+                    // Réinitialiser la page courante pour l'outil concerné
+                    if (paginationState[toolName]) {
+                        paginationState[toolName].currentPage = 1;
+                    }
+                    
+                    // Recharger les données
+                    if (toolName === 'period') {
+                        // Pour le sélecteur global sur le dashboard
+                        initDashboard();
+                    } else {
+                        // Pour les sélecteurs spécifiques
+                        if (toolName === 'trivy') {
+                            initTrivyPage();
+                        } else if (toolName === 'sonar') {
+                            initSonarQubePage();
+                        } else if (toolName === 'zap') {
+                            initZapPage();
+                        } else if (toolName === 'selenium') {
+                            initSeleniumPage();
+                        }
+                    }
+                });
+            }
+        });
+    });

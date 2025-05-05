@@ -1,0 +1,130 @@
+/* Ajout pour la mise en forme de la pagination améliorée */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.pagination .btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    min-width: 80px;
+}
+
+.pagination .btn:disabled {
+    background-color: var(--secondary-color);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination span {
+    font-size: 14px;
+    color: var(--light-text);
+    min-width: 100px;
+    text-align: center;
+}
+
+body.dark-mode .pagination span {
+    color: var(--dark-text);
+}
+
+/* Mise en forme du texte pour l'information "compteur" des derniers scans */
+.scan-info {
+    background-color: rgba(0, 0, 0, 0.03);
+    padding: 10px 15px;
+    border-radius: var(--border-radius);
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+body.dark-mode .scan-info {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.scan-info p {
+    margin: 5px 15px 5px 0;
+}
+
+/* Style pour les résultats de filtrage */
+.filter-results {
+    font-size: 13px;
+    margin-top: 5px;
+    color: var(--secondary-color);
+}
+
+/* Amélioration de l'affichage des tables avec beaucoup de données */
+.table-container {
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--light-card);
+    z-index: 10;
+    box-shadow: 0 1px 0 0 var(--light-border);
+}
+
+body.dark-mode .table thead th {
+    background-color: var(--dark-card);
+    box-shadow: 0 1px 0 0 var(--dark-border);
+}
+
+/* Classes d'utilitaires supplémentaires */
+.text-small {
+    font-size: 12px;
+}
+
+.badge {
+    white-space: nowrap;
+}
+
+/* Notification améliorée pour les messages de chargement */
+.notification.loading {
+    border-left: 4px solid var(--primary-color);
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-left-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+body.dark-mode .loading-spinner {
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-left-color: var(--primary-color);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Améliorations des filtres responsifs */
+@media (max-width: 768px) {
+    .filters-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-group {
+        margin-bottom: 10px;
+        width: 100%;
+    }
+    
+    .pagination {
+        flex-wrap: wrap;
+    }
+}
