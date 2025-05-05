@@ -7,17 +7,6 @@ const API_BASE_URL = '/api';
 let currentPage = 'dashboard';
 let darkMode = localStorage.getItem('darkMode') === 'true';
 let zapDataLoaded = false;
-// Track current page for each table
-const paginationState = {
-    'trivy-vulnerabilities': { currentPage: 1, totalItems: 0 },
-    'trivy-history': { currentPage: 1, totalItems: 0 },
-    'sonarqube-vulnerabilities': { currentPage: 1, totalItems: 0 },
-    'sonarqube-history': { currentPage: 1, totalItems: 0 },
-    'zap-vulnerabilities': { currentPage: 1, totalItems: 0 },
-    'zap-history': { currentPage: 1, totalItems: 0 },
-    'selenium-failed-tests': { currentPage: 1, totalItems: 0 },
-    'selenium-history': { currentPage: 1, totalItems: 0 }
-};
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
     // Appliquer le thème
@@ -503,10 +492,6 @@ async function initSonarQubePage() {
  * Initialisation de la page OWASP ZAP
  */
 function initZapPage() {
-    // Reset pagination state
-    paginationState['zap-vulnerabilities'].currentPage = 1;
-    paginationState['zap-history'].currentPage = 1;
-
     const tryFetchScanHistory = (attempts = 3, delay = 500) => {
         const table = document.querySelector('#zap-history-table tbody');
         if (table) {
@@ -572,7 +557,8 @@ async function fetchVulnerabilities(toolName, limit = 5000, offset = 0) {
 /**
  * Mise à jour de la table des vulnérabilités
  */
-function updateVulnerabilitiesTable(tableId, vulnerabilities) {
+function updateVulnerabilitiesTable( toolName ,vulnerabilities) {
+    const tableId = `${toolName}-vulnerabilities-table`;
     const tableBody = document.querySelector(`#${tableId} tbody`);
     
     if (!tableBody) {
@@ -590,60 +576,28 @@ function updateVulnerabilitiesTable(tableId, vulnerabilities) {
         // Définir la classe de sévérité
         row.classList.add(`severity-${vuln.severity}`);
         
-        if (tableId === 'selenium-failed-tests') {
-            row.innerHTML = `
-                <td>${vuln.title || 'N/A'}</td>
-                <td>${vuln.suite || 'N/A'}</td>
-                <td>${formatDate(vuln.last_detected)}</td>
-                <td>${vuln.duration || 'N/A'}</td>
-                <td>${vuln.error || 'N/A'}</td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
-                        <i class="fas fa-info-circle"></i>
-                    </button>
-                </td>
-            `;
-        } else if (tableId === 'sonarqube-vulnerabilities') {
-            row.innerHTML = `
-                <td>${vuln.title}</td>
-                <td>${vuln.type || 'N/A'}</td>
-                <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
-                <td>${vuln.location || 'N/A'}</td>
-                <td>${vuln.line || 'N/A'}</td>
-                <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
-                        <i class="fas fa-info-circle"></i>
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
-                        <i class="fas fa-check"></i>
-                    </button>
-                </td>
-            `;
-        } else {
-            row.innerHTML = `
-                <td>${vuln.title}</td>
-                <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
-                <td>${vuln.location || 'N/A'}</td>
-                <td>${vuln.category || 'N/A'}</td>
-                <td>${formatDate(vuln.last_detected)}</td>
-                <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
-                        <i class="fas fa-info-circle"></i>
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
-                        <i class="fas fa-check"></i>
-                    </button>
-                </td>
-            `;
-        }
+        row.innerHTML = `
+            <td>${vuln.title}</td>
+            <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
+            <td>${vuln.location || 'N/A'}</td>
+            <td>${vuln.category || 'N/A'}</td>
+            <td>${formatDate(vuln.last_detected)}</td>
+            <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
+                    <i class="fas fa-check"></i>
+                </button>
+            </td>
+        `;
         
         tableBody.appendChild(row);
     });
     
     // Mettre à jour le compteur s'il existe
-    const countElement = document.getElementById(`${tableId}-vulnerability-count`);
+    const countElement = document.getElementById(`${toolName}-vulnerability-count`);
     if (countElement) {
         countElement.textContent = vulnerabilities.length;
     }
@@ -885,12 +839,6 @@ async function fetchLatestScanId(toolName) {
 /**
  * Récupération de l'historique des scans par outil
  */
-
-function fetchScanHistory(toolName, page = 1, limit = 10) {
-    const offset = (page - 1) * limit;
-    console.log(`Fetching scan history for ${toolName} with limit=${limit}, offset=${offset}`);
-    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}&offset=${offset}`)
-
 function fetchScanHistory(toolName, limit = 10) {
     console.log(`Fetching scan history for ${toolName} with limit=${limit}`);
     fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}`)
@@ -905,10 +853,9 @@ function fetchScanHistory(toolName, limit = 10) {
             return response.json();
         })
         .then(data => {
-            console.log(`${toolName} scan history API response:`, data);
+            console.log(`Scan history response for ${toolName}:`, data);
             if (data.status === 'success') {
                 updateScanHistoryTable(data.data, toolName);
-                updatePaginationControls(`${toolName}-history`, `${toolName}-history`, data.total);
             } else {
                 console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
                 showNotification(`L'API a signalé une erreur pour l'historique ${toolName}: ${data.message}`, 'warning');
@@ -918,7 +865,7 @@ function fetchScanHistory(toolName, limit = 10) {
             console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
             showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
         });
-}}
+}
     /**
      * Mise à jour de la table d'historique des scans
      */
