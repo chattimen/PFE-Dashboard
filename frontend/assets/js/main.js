@@ -7,6 +7,8 @@ const API_BASE_URL = '/api';
 let currentPage = 'dashboard';
 let darkMode = localStorage.getItem('darkMode') === 'true';
 let zapDataLoaded = false;
+let allZapVulnerabilities = [];
+
 
 // Configuration de la pagination
 const ITEMS_PER_PAGE = 10;
@@ -219,7 +221,7 @@ function elementExists(id) {
 function setupPagination(toolName, tableType, totalItems) {
     const state = paginationState[toolName][tableType];
     state.totalItems = totalItems;
-    state.totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    state.totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
 
     const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
     const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
@@ -231,24 +233,34 @@ function setupPagination(toolName, tableType, totalItems) {
     }
 
     pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
-    prevButton.disabled = state.currentPage === 1;
-    nextButton.disabled = state.currentPage === state.totalPages;
+    prevButton.disabled = state.currentPage <= 1;
+    nextButton.disabled = state.currentPage >= state.totalPages;
 
-    prevButton.onclick = () => {
+    // Supprimer les anciens écouteurs en clonant les boutons
+    const newPrevButton = prevButton.cloneNode(true);
+    const newNextButton = nextButton.cloneNode(true);
+    prevButton.replaceWith(newPrevButton);
+    nextButton.replaceWith(newNextButton);
+
+    newPrevButton.addEventListener('click', () => {
         if (state.currentPage > 1) {
             state.currentPage--;
+            console.log(`Affichage page précédente ${state.currentPage} pour ${toolName}-${tableType}`);
             loadTableData(toolName, tableType);
         }
-    };
+    });
 
-    nextButton.onclick = () => {
+    newNextButton.addEventListener('click', () => {
         if (state.currentPage < state.totalPages) {
             state.currentPage++;
+            console.log(`Affichage page suivante ${state.currentPage} pour ${toolName}-${tableType}`);
             loadTableData(toolName, tableType);
         }
-    };
+    });
+
     return true;
 }
+
 
 
 /**
@@ -256,30 +268,48 @@ function setupPagination(toolName, tableType, totalItems) {
  */
 async function loadTableData(toolName, tableType) {
     const state = paginationState[toolName][tableType];
-    const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+    console.log(`Chargement des données pour ${toolName}-${tableType}, page: ${state.currentPage}`);
     
-    if (tableType === 'vulnerabilities') {
-        await fetchVulnerabilities(toolName, ITEMS_PER_PAGE, offset);
-    } else if (tableType === 'history') {
-        await fetchScanHistory(toolName, ITEMS_PER_PAGE, offset);
-    } else if (tableType === 'latestScans') {
-        await loadLatestScans(ITEMS_PER_PAGE, offset);
-    }
+    try {
+        if (tableType === 'vulnerabilities') {
+            if (toolName === 'zap') {
+                // Trancher les données ZAP côté client
+                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+                const endIndex = startIndex + ITEMS_PER_PAGE;
+                const paginatedAlerts = allZapVulnerabilities.slice(startIndex, endIndex);
+                console.log(`Affichage des vulnérabilités ZAP: ${startIndex} à ${endIndex}, total: ${allZapVulnerabilities.length}`);
+                populateVulnerabilityTable(paginatedAlerts);
+                // Mettre à jour le compteur total
+                const countElement = document.getElementById('zap-vulnerability-count');
+                if (countElement) countElement.textContent = allZapVulnerabilities.length;
+            } else {
+                // Pour les autres outils, conserver la logique API existante
+                const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+                await fetchVulnerabilities(toolName, ITEMS_PER_PAGE, offset);
+            }
+        } else if (tableType === 'history') {
+            const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+            await fetchScanHistory(toolName, ITEMS_PER_PAGE, offset);
+        } else if (tableType === 'latestScans') {
+            const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+            await loadLatestScans(ITEMS_PER_PAGE, offset);
+        }
 
-    // Mettre à jour l'affichage de la pagination
-    const pageInfo = document.getElementById(`${toolName}-${tableType}-page-info`);
-    if (pageInfo) {
-        pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
-    }
-
-    const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
-    const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
-    if (prevButton && nextButton) {
-        prevButton.disabled = state.currentPage === 1;
-        nextButton.disabled = state.currentPage === state.totalPages;
+        // Mettre à jour les contrôles de pagination
+        const pageInfo = document.getElementById(`${toolName}-${tableType}-page-info`);
+        if (pageInfo) pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
+        const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
+        const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
+        if (prevButton && nextButton) {
+            prevButton.disabled = state.currentPage <= 1;
+            nextButton.disabled = state.currentPage >= state.totalPages;
+            console.log(`Boutons mis à jour: Précédent=${prevButton.disabled}, Suivant=${nextButton.disabled}`);
+        }
+    } catch (error) {
+        console.error(`Erreur lors du chargement des données pour ${toolName}-${tableType}:`, error);
+        showNotification(`Erreur chargement ${toolName}-${tableType}`, 'error');
     }
 }
-
 /**
  * Chargement des statistiques des vulnérabilités
  */
@@ -628,65 +658,51 @@ async function initSeleniumPage() {
 async function fetchVulnerabilities(toolName, limit = ITEMS_PER_PAGE, offset = 0) {
     try {
         let url = `${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`;
-
-        // Fetch only the latest scan's vulnerabilities for Trivy and SonarQube
         if (['trivy', 'sonarqube'].includes(toolName)) {
             const latestScanId = await fetchLatestScanId(toolName);
             if (!latestScanId) {
-                console.error(`Aucun scan récent trouvé pour ${toolName}`);
-                showNotification(`Aucun scan récent trouvé pour ${toolName}`, 'error');
+                console.error(`Aucun scan récent pour ${toolName}`);
+                showNotification(`Aucun scan récent pour ${toolName}`, 'error');
                 return;
             }
             url += `&scan_id=${latestScanId}`;
         }
-
         const response = await fetch(url);
         const data = await response.json();
-
         console.log(`${toolName} vulnerabilities API response:`, data);
         if (data.status === 'success') {
-            // Supposons que l'API retourne également le nombre total d'éléments
             const totalItems = data.total || data.data.length;
-            setupPagination(toolName, 'vulnerabilities', totalItems);
-            updateVulnerabilitiesTable(toolName, data.data);
+            if (setupPagination(toolName, 'vulnerabilities', totalItems)) {
+                updateVulnerabilitiesTable(toolName, data.data, totalItems); // Passer totalItems
+            }
         } else {
-            console.error(`Erreur lors du chargement des vulnérabilités ${toolName}:`, data.message);
-            showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
+            console.error(`Erreur vulnérabilités ${toolName}:`, data.message);
+            showNotification(`Erreur chargement vulnérabilités ${toolName}`, 'error');
         }
     } catch (error) {
-        console.error(`Erreur lors de la requête API pour ${toolName}:`, error);
-        showNotification(`Erreur lors du chargement des vulnérabilités ${toolName}`, 'error');
+        console.error(`Erreur API ${toolName}:`, error);
+        showNotification(`Erreur chargement vulnérabilités ${toolName}`, 'error');
     }
 }
 
 /**
  * Mise à jour de la table des vulnérabilités
  */
-function updateVulnerabilitiesTable(toolName, vulnerabilities) {
+function updateVulnerabilitiesTable(toolName, vulnerabilities, totalCount) {
     const tableId = `${toolName}-vulnerabilities-table`;
     const tableBody = document.querySelector(`#${tableId} tbody`);
-    
     if (!tableBody) {
-        console.warn(`Table body non trouvé pour ${tableId}`);
+        console.warn(`Tableau ${tableId} non trouvé`);
         return;
     }
-    
-    // Vider la table
     tableBody.innerHTML = '';
-    
-    // Handle empty state
     if (!vulnerabilities || vulnerabilities.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
         return;
     }
-    
-    // Remplir avec les nouvelles données
     vulnerabilities.forEach(vuln => {
         const row = document.createElement('tr');
-        
-        // Définir la classe de sévérité
         row.classList.add(`severity-${vuln.severity}`);
-        
         row.innerHTML = `
             <td>${vuln.title}</td>
             <td><span class="badge severity-${vuln.severity}">${formatSeverity(vuln.severity)}</span></td>
@@ -703,35 +719,18 @@ function updateVulnerabilitiesTable(toolName, vulnerabilities) {
                 </button>
             </td>
         `;
-        
         tableBody.appendChild(row);
     });
-    
-    // Mettre à jour le compteur s'il existe
     const countElement = document.getElementById(`${toolName}-vulnerability-count`);
-    if (countElement) {
-        countElement.textContent = vulnerabilities.length;
-    }
+    if (countElement) countElement.textContent = totalCount; // Utiliser le compte total
 }
 
 /**
  * Formatage de la sévérité pour l'affichage
  */
-function formatSeverity(severity) {
-    switch (severity.toLowerCase()) {
-        case 'critical':
-            return 'Critique';
-        case 'high':
-            return 'Élevée';
-        case 'medium':
-            return 'Moyenne';
-        case 'low':
-            return 'Faible';
-        case 'info':
-            return 'Info';
-        default:
-            return 'Inconnue';
-    }
+function formatSeverity(riskdesc) {
+    if (!riskdesc) return "Unknown";
+    return riskdesc; // riskdesc est déjà formaté comme "High", "Medium", etc.
 }
 
 /**
@@ -1673,7 +1672,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function transformApiDataToZapFormat(vulnerabilities) {
-    // Éviter le regroupement pour afficher toutes les vulnérabilités
     const zapData = {
         "@programName": "ZAP",
         "@version": "2.16.0",
@@ -1684,27 +1682,31 @@ function transformApiDataToZapFormat(vulnerabilities) {
                 "@host": vulnerabilities[0]?.location?.split('/')[2]?.split(':')[0] || "unknown",
                 "@port": vulnerabilities[0]?.location?.split(':')[3] || "80",
                 "@ssl": vulnerabilities[0]?.location?.startsWith('https') ? "true" : "false",
-                "alerts": vulnerabilities.map(vuln => ({
-                    "pluginid": vuln.id || "N/A",
-                    "alertRef": vuln.id || "N/A",
-                    "alert": vuln.title || "Unknown Vulnerability",
-                    "name": vuln.title || "Unknown Vulnerability",
-                    "riskcode": mapSeverityToRiskCode(vuln.severity),
-                    "confidence": "2",
-                    "riskdesc": `${formatSeverity(vuln.severity)} (Medium)`,
-                    "desc": vuln.description || "No description available",
-                    "instances": [{ uri: vuln.location || "N/A", method: "GET", param: "", attack: "", evidence: "" }],
-                    "count": "1",
-                    "solution": vuln.remediation || "No solution provided",
-                    "otherinfo": "",
-                    "reference": "",
-                    "cweid": vuln.cwe || "-1",
-                    "wascid": "-1",
-                    "sourceid": "",
-                    "category": vuln.category || "N/A",
-                    "status": vuln.status || "open",
-                    "location": vuln.location || "N/A"
-                }))
+                "alerts": vulnerabilities.map(vuln => {
+                    const severity = vuln.severity?.toLowerCase() || "medium";
+                    const riskCode = mapSeverityToRiskCode(severity);
+                    return {
+                        "pluginid": vuln.id || "N/A",
+                        "alertRef": vuln.id || "N/A",
+                        "alert": vuln.title || "Unknown Vulnerability",
+                        "name": vuln.title || "Unknown Vulnerability",
+                        "riskcode": riskCode,
+                        "confidence": "2",
+                        "riskdesc": severity.charAt(0).toUpperCase() + severity.slice(1), // Ex: "High"
+                        "desc": vuln.description || "No description available",
+                        "instances": [{ uri: vuln.location || "N/A", method: "GET", param: "", attack: "", evidence: "" }],
+                        "count": "1",
+                        "solution": vuln.remediation || "No solution provided",
+                        "otherinfo": "",
+                        "reference": "",
+                        "cweid": vuln.cwe || "-1",
+                        "wascid": "-1",
+                        "sourceid": "",
+                        "category": vuln.category || "N/A",
+                        "status": vuln.status || "open",
+                        "location": vuln.location || "N/A"
+                    };
+                })
             }
         ]
     };
@@ -1713,19 +1715,14 @@ function transformApiDataToZapFormat(vulnerabilities) {
 
 
 function mapSeverityToRiskCode(severity) {
-    switch (severity.toLowerCase()) {
-        case 'critical':
-            return "3";
-        case 'high':
-            return "2";
-        case 'medium':
-            return "1";
-        case 'low':
-        case 'info':
-            return "0";
-        default:
-            return "0";
-    }
+    const severityMap = {
+        "critical": "4",
+        "high": "3",
+        "medium": "2",
+        "low": "1",
+        "info": "0"
+    };
+    return severityMap[severity.toLowerCase()] || "2"; // Par défaut: Medium
 }
 
 async function loadZapData() {
@@ -1739,15 +1736,17 @@ async function loadZapData() {
             zapDataLoaded = false;
             return;
         }
-        const offset = (paginationState.zap.vulnerabilities.currentPage - 1) * ITEMS_PER_PAGE;
-        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&scan_id=${latestScanId}&limit=${ITEMS_PER_PAGE}&offset=${offset}`);
+        // Récupérer toutes les vulnérabilités sans limit/offset
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&scan_id=${latestScanId}`);
         const data = await response.json();
         console.log('ZAP vulnerabilities API response:', data);
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
+            allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts; // Stocker toutes les alertes
             if (setupPagination('zap', 'vulnerabilities', totalItems)) {
-                const zapData = transformApiDataToZapFormat(data.data);
-                processZapData(zapData);
+                // Afficher la première page (10 premières vulnérabilités)
+                const paginatedAlerts = allZapVulnerabilities.slice(0, ITEMS_PER_PAGE);
+                processZapData({ site: [{ alerts: paginatedAlerts }] }, totalItems);
             }
         } else {
             console.error('Erreur ZAP:', data.message);
@@ -1761,30 +1760,25 @@ async function loadZapData() {
     }
 }
 
-function processZapData(data) {
+function processZapData(data, totalItems) {
     if (!data || !data.site || !data.site[0]) {
-        console.error("Format de données ZAP invalide");
+        console.error("Format données ZAP invalide");
         return;
     }
-    
     const site = data.site[0];
     const alerts = site.alerts || [];
-    
-    if (alerts.length === 0) {
-        console.warn("Aucune alerte ZAP trouvée");
-    }
-    
+    if (alerts.length === 0) console.warn("Aucune alerte ZAP");
     try {
         updateScanInfo(data, site);
         updateVulnerabilityCounts(alerts);
         renderVulnerabilityCharts(alerts);
         populateVulnerabilityTable(alerts);
-        
-        // Initialiser les gestionnaires d'événements
         initializeEventHandlers(alerts);
-    } catch (e) {
-        console.error("Erreur lors du traitement des données ZAP:", e);
-        showNotification("Erreur lors du traitement des données ZAP", "error");
+        const countElement = document.getElementById('zap-vulnerability-count');
+        if (countElement) countElement.textContent = totalItems; // Mettre à jour avec le compte total
+    } catch (error) {
+        console.error('Erreur traitement ZAP:', error);
+        showNotification('Erreur traitement ZAP', 'error');
     }
 }
 
@@ -1947,63 +1941,55 @@ function renderVulnerabilityCharts(alerts) {
 }
 
 function populateVulnerabilityTable(alerts) {
-    const tableBody = document.getElementById('zap-vulnerabilities-table-body');
+    const tableBody = document.querySelector('#zap-vulnerabilities-table tbody');
     if (!tableBody) {
-        console.warn("Élément #zap-vulnerabilities-table-body non trouvé");
+        console.warn('Corps de la table #zap-vulnerabilities-table non trouvé');
         return;
     }
-    
     tableBody.innerHTML = '';
-    
     if (!alerts || alerts.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
         return;
     }
-    
     alerts.forEach((alert, index) => {
         const row = document.createElement('tr');
-        
-        row.classList.add(`severity-${alert.riskcode === "3" ? "critical" : alert.riskcode === "2" ? "high" : alert.riskcode === "1" ? "medium" : "low"}`);
-        
+        const severityLevel = alert.riskdesc?.toLowerCase() || "medium";
+        row.classList.add(`severity-${severityLevel}`);
         row.innerHTML = `
-            <td>${alert.name}</td>
-            <td><span class="badge severity-${alert.riskcode === "3" ? "critical" : alert.riskcode === "2" ? "high" : alert.riskcode === "1" ? "medium" : "low"}">${formatSeverity(alert.riskcode === "3" ? "critical" : alert.riskcode === "2" ? "high" : alert.riskcode === "1" ? "medium" : "low")}</span></td>
-            <td>${alert.location || 'N/A'}</td>
+            <td>${alert.alert || 'N/A'}</td>
+            <td><span class="badge severity-${severityLevel}">${alert.riskdesc || 'Medium'}</span></td>
+            <td>${alert.instances[0]?.uri || 'N/A'}</td>
             <td>${alert.category || 'N/A'}</td>
-            <td><span class="badge status-${alert.status}">${formatStatus(alert.status)}</span></td>
+            <td>${alert.status || 'N/A'}</td>
             <td>
-                <button class="btn btn-sm btn-primary view-details" data-alert-index="${index}">
+                <button class="btn btn-sm btn-info" data-alert-index="${index}">
                     <i class="fas fa-eye"></i>
                 </button>
             </td>
         `;
-        
         tableBody.appendChild(row);
     });
+    initializeEventHandlers(alerts); // Réinitialiser les gestionnaires après mise à jour
 }
 
 function initializeEventHandlers(alerts) {
-    const detailButtons = document.querySelectorAll('#zap-vulnerabilities-table-body .view-details');
+    const detailButtons = document.querySelectorAll('#zap-vulnerabilities-table-body .btn-info');
     detailButtons.forEach(button => {
         button.removeEventListener('click', handleDetailClick); // Éviter les doublons
         button.addEventListener('click', handleDetailClick);
     });
 
-    function handleDetailClick() {
+    function handleDetailClick(event) {
+        event.preventDefault(); // Empêcher le comportement par défaut si applicable
         const alertIndex = this.getAttribute('data-alert-index');
         if (alertIndex !== null && alerts[alertIndex]) {
+            console.log(`Affichage des détails pour l'alerte ${alertIndex}:`, alerts[alertIndex]);
             showAlertDetails(alerts[alertIndex]);
+        } else {
+            console.warn('Indice d\'alerte invalide ou alerte non trouvée');
         }
     }
 
-    const severityFilter = document.getElementById('zap-severity-filter');
-    if (severityFilter) {
-        severityFilter.addEventListener('change', () => filterVulnerabilityTable(alerts));
-    }
-    const statusFilter = document.getElementById('zap-status-filter');
-    if (statusFilter) {
-        statusFilter.addEventListener('change', () => filterVulnerabilityTable(alerts));
-    }
     const modalCloseBtn = document.querySelector('#zap-alert-modal .close-modal');
     if (modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
@@ -2011,6 +1997,7 @@ function initializeEventHandlers(alerts) {
             if (modal) modal.style.display = 'none';
         });
     }
+
     const exportBtn = document.getElementById('export-zap-csv');
     if (exportBtn) {
         exportBtn.addEventListener('click', () => exportToCSV(alerts));
