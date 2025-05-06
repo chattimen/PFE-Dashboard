@@ -158,6 +158,11 @@
                                         </tbody>
                                 </table>
                             </div>
+                            <div class="pagination-controls">
+                                <button id="dashboard-latestScans-prev-page" class="btn btn-secondary">Précédent</button>
+                                <span id="dashboard-latestScans-page-info">Page 1 sur 1</span>
+                                <button id="dashboard-latestScans-next-page" class="btn btn-secondary">Suivant</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -242,10 +247,10 @@
                             <tbody>
                                 </tbody>
                         </table>
-                        <div class="pagination mt-2" id="trivy-vulnerabilities-pagination">
-                            <button id="trivy-vuln-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
-                            <span id="trivy-vuln-page-info">Page 1</span>
-                            <button id="trivy-vuln-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+                        <div class="pagination-controls">
+                            <button id="trivy-vulnerabilities-prev-page" class="btn btn-secondary">Précédent</button>
+                            <span id="trivy-vulnerabilities-page-info">Page 1 sur 1</span>
+                            <button id="trivy-vulnerabilities-next-page" class="btn btn-secondary">Suivant</button>
                         </div>
                     </div>
                 </div>
@@ -270,10 +275,10 @@
                             <tbody>
                                 </tbody>
                         </table>
-                        <div class="pagination mt-2" id="trivy-history-pagination">
-                            <button id="trivy-history-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
-                            <span id="trivy-history-page-info">Page 1</span>
-                            <button id="trivy-history-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+                        <div class="pagination-controls">
+                            <button id="trivy-history-prev-page" class="btn btn-secondary">Précédent</button>
+                            <span id="trivy-history-page-info">Page 1 sur 1</span>
+                            <button id="trivy-history-next-page" class="btn btn-secondary">Suivant</button>
                         </div>
                     </div>
                 </div>
@@ -413,9 +418,11 @@
                                 </tbody>
                         </table>
                     </div>
-
-                    <div class="pagination mt-2">
-                        <button id="sonar-prev-page" class="btn btn-sm btn-secondary">Précédent</button> <span id="sonar-page-info">Page 1</span> <button id="sonar-next-page" class="btn btn-sm btn-secondary">Suivant</button> </div>
+                    <div class="pagination-controls">
+                        <button id="sonarqube-vulnerabilities-prev-page" class="btn btn-secondary">Précédent</button>
+                        <span id="sonarqube-vulnerabilities-page-info">Page 1 sur 1</span>
+                        <button id="sonarqube-vulnerabilities-next-page" class="btn btn-secondary">Suivant</button>
+                    </div>
                 </div>
             </div>
 
@@ -439,10 +446,10 @@
                             <tbody id="sonarqube-history-table-body">
                                 </tbody>
                         </table>
-                        <div class="pagination mt-2" id="sonarqube-history-pagination">
-                            <button id="sonarqube-history-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
-                            <span id="sonarqube-history-page-info">Page 1</span>
-                            <button id="sonarqube-history-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+                        <div class="pagination-controls">
+                            <button id="sonarqube-history-prev-page" class="btn btn-secondary">Précédent</button>
+                            <span id="sonarqube-history-page-info">Page 1 sur 1</span>
+                            <button id="sonarqube-history-next-page" class="btn btn-secondary">Suivant</button>
                         </div>
                     </div>
                 </div>
@@ -578,10 +585,10 @@
                             <tbody id="zap-vulnerabilities-table-body"></tbody>
                         </table>
                     </div>
-                    <div class="pagination mt-2">
-                        <button id="zap-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
-                        <span id="zap-page-info">Page 1</span>
-                        <button id="zap-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+                    <div class="pagination-controls">
+                        <button id="zap-vulnerabilities-prev-page" class="btn btn-secondary">Précédent</button>
+                        <span id="zap-vulnerabilities-page-info">Page 1 sur 1</span>
+                        <button id="zap-vulnerabilities-next-page" class="btn btn-secondary">Suivant</button>
                     </div>
                 </div>
             </div>
@@ -605,10 +612,10 @@
                             <tbody id="zap-history-table-body">
                                 </tbody>
                         </table>
-                        <div class="pagination mt-2" id="zap-history-pagination">
-                            <button id="zap-history-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
-                            <span id="zap-history-page-info">Page 1</span>
-                            <button id="zap-history-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+                        <div class="pagination-controls">
+                            <button id="zap-history-prev-page" class="btn btn-secondary">Précédent</button>
+                            <span id="zap-history-page-info">Page 1 sur 1</span>
+                            <button id="zap-history-next-page" class="btn btn-secondary">Suivant</button>
                         </div>
                     </div>
                 </div>
@@ -745,8 +752,11 @@
                         </table>
                     </div>
 
-                    <div class="pagination mt-2">
-                        <button id="selenium-prev-page" class="btn btn-sm btn-secondary">Précédent</button> <span id="selenium-page-info">Page 1</span> <button id="selenium-next-page" class="btn btn-sm btn-secondary">Suivant</button> </div>
+                    <div class="pagination-controls">
+                        <button id="selenium-vulnerabilities-prev-page" class="btn btn-secondary">Précédent</button>
+                        <span id="selenium-vulnerabilities-page-info">Page 1 sur 1</span>
+                        <button id="selenium-vulnerabilities-next-page" class="btn btn-secondary">Suivant</button>
+                    </div>
                 </div>
             </div>
 
@@ -769,10 +779,10 @@
                             <tbody>
                                 </tbody>
                         </table>
-                        <div class="pagination mt-2" id="selenium-history-pagination">
-                            <button id="selenium-history-prev-page" class="btn btn-sm btn-secondary">Précédent</button>
-                            <span id="selenium-history-page-info">Page 1</span>
-                            <button id="selenium-history-next-page" class="btn btn-sm btn-secondary">Suivant</button>
+                        <div class="pagination-controls">
+                            <button id="selenium-history-prev-page" class="btn btn-secondary">Précédent</button>
+                            <span id="selenium-history-page-info">Page 1 sur 1</span>
+                            <button id="selenium-history-next-page" class="btn btn-secondary">Suivant</button>
                         </div>
                     </div>
                 </div>
