@@ -203,22 +203,36 @@ class ScanController {
      */
     public function getScanStats($filters = []) {
         $days = isset($_GET['days']) ? intval($_GET['days']) : 30;
+        $tool_name = isset($_GET['tool_name']) ? $_GET['tool_name'] : null;
         
-        if (is_array($filters) && isset($filters['days'])) {
-            $days = intval($filters['days']);
+        if (is_array($filters)) {
+            if (isset($filters['days'])) {
+                $days = intval($filters['days']);
+            }
+            if (isset($filters['tool_name'])) {
+                $tool_name = $filters['tool_name'];
+            }
         }
         
         try {
-            $stats = $this->scanModel->getScanStats($days);
+            $stats = $this->scanModel->getScanStats($days, $tool_name);
+            $filtered_stats = $stats;
+            if ($tool_name) {
+                $filtered_stats = array_filter($stats, function($stat) use ($tool_name) {
+                    return isset($stat['tool_name']) && strtolower($stat['tool_name']) === strtolower($tool_name);
+                });
+                $filtered_stats = array_values($filtered_stats); // Réindexer le tableau
+            }
             
             if (isset($_SERVER['REQUEST_METHOD'])) {
                 header('Content-Type: application/json');
                 echo json_encode([
                     'status' => 'success',
-                    'data' => $stats
+                    'data' => $filtered_stats
                 ]);
+                exit; // Ensure clean exit
             } else {
-                return $stats;
+                return $filtered_stats;
             }
         } catch (Exception $e) {
             if (isset($_SERVER['REQUEST_METHOD'])) {

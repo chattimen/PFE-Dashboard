@@ -7,12 +7,17 @@ const API_BASE_URL = '/api';
 let currentPage = 'dashboard';
 let darkMode = localStorage.getItem('darkMode') === 'true';
 let zapDataLoaded = false;
-let allZapVulnerabilities = [];
+
 
 let allZapHistory = [];
 let allTrivyHistory = [];
 let allSonarQubeHistory = [];
 let allSeleniumHistory = [];
+let allZapVulnerabilities = [];
+let allTrivyVulnerabilities = [];
+let allSonarQubeVulnerabilities = [];
+let allSeleniumVulnerabilities = [];
+
 
 // Configuration de la pagination
 const ITEMS_PER_PAGE = 10;
@@ -258,6 +263,7 @@ function setupPagination(tableId, totalItems, limit, callback) {
  */
 async function loadTableData(toolName, tableType) {
     const state = paginationState[toolName][tableType];
+    let allHistory; // Déplacé en haut pour être dans le scope
     console.log(`Chargement des données pour ${toolName}-${tableType}, page: ${state.currentPage}`);
     
     try {
@@ -270,64 +276,70 @@ async function loadTableData(toolName, tableType) {
             if (toolName === 'zap') {
                 const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
                 const endIndex = startIndex + ITEMS_PER_PAGE;
-                paginatedData = allZapVulnerabilities.slice(startIndex, endIndex);
+                paginatedData = allZapVulnerabilities.slice(startIndex, endIndex) || [];
+                console.log(`Paginated ZAP data (page ${state.currentPage}):`, paginatedData);
                 processZapData({ site: [{ alerts: paginatedData }] }, state.totalItems);
             } else if (toolName === 'trivy') {
                 const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
                 const endIndex = startIndex + ITEMS_PER_PAGE;
-                paginatedData = allTrivyVulnerabilities.slice(startIndex, endIndex);
+                paginatedData = allTrivyVulnerabilities.slice(startIndex, endIndex) || [];
+                console.log(`Paginated Trivy data (page ${state.currentPage}):`, paginatedData);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
             } else if (toolName === 'sonarqube') {
                 const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
                 const endIndex = startIndex + ITEMS_PER_PAGE;
-                paginatedData = allSonarqubeVulnerabilities.slice(startIndex, endIndex);
+                paginatedData = allSonarQubeVulnerabilities.slice(startIndex, endIndex) || [];
+                console.log(`Paginated SonarQube data (page ${state.currentPage}):`, paginatedData);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
             }
         } else if (tableType === 'history') {
             if (!state.totalItems) {
                 state.totalItems = await fetchScanHistory(toolName);
-                state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
+                state.totalPages = 1; // Disable pagination
             }
-            const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE;
-            let paginatedHistory;
+            let historySource;
             if (toolName === 'zap') {
-                paginatedHistory = allZapHistory.slice(startIndex, endIndex);
+                historySource = allZapHistory;
             } else if (toolName === 'trivy') {
-                paginatedHistory = allTrivyHistory.slice(startIndex, endIndex);
+                historySource = allTrivyHistory;
             } else if (toolName === 'sonarqube') {
-                paginatedHistory = allSonarQubeHistory.slice(startIndex, endIndex);
+                historySource = allSonarQubeHistory;
             } else if (toolName === 'selenium') {
-                paginatedHistory = allSeleniumHistory.slice(startIndex, endIndex);
+                historySource = allSeleniumHistory;
             }
-            if (!paginatedHistory) {
-                console.warn(`Paginated history is undefined for ${toolName}`);
-                paginatedHistory = [];
-            }
-            console.log(`Rendering history table for ${toolName} with ${paginatedHistory.length} entries`);
-            updateHistoryTable(toolName, paginatedHistory, state.totalItems);
+            allHistory = historySource ? historySource : [];
+            console.log(`Rendering all history for ${toolName} with ${allHistory.length} entries`);
+            updateHistoryTable(toolName, allHistory, allHistory.length);
         }
 
         const pageInfo = document.getElementById(`${toolName}-${tableType}-page-info`);
-        if (pageInfo) pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
+        if (pageInfo && tableType === 'history') {
+            pageInfo.textContent = `Tous les scans (${allHistory ? allHistory.length : 0} entrées)`;
+        } else if (pageInfo) {
+            pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
+        }
         const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
         const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
         if (prevButton && nextButton) {
-            prevButton.onclick = () => {
-                if (state.currentPage > 1) {
-                    state.currentPage--;
-                    loadTableData(toolName, tableType);
-                }
-            };
-            nextButton.onclick = () => {
-                if (state.currentPage < state.totalPages) {
-                    state.currentPage++;
-                    loadTableData(toolName, tableType);
-                }
-            };
-            prevButton.disabled = state.currentPage <= 1;
-            nextButton.disabled = state.currentPage >= state.totalPages;
-            console.log(`Boutons mis à jour: Précédent=${prevButton.disabled}, Suivant=${nextButton.disabled}`);
+            prevButton.style.display = tableType === 'history' ? 'none' : 'inline-block';
+            nextButton.style.display = tableType === 'history' ? 'none' : 'inline-block';
+            if (tableType !== 'history') {
+                prevButton.onclick = () => {
+                    if (state.currentPage > 1) {
+                        state.currentPage--;
+                        loadTableData(toolName, tableType);
+                    }
+                };
+                nextButton.onclick = () => {
+                    if (state.currentPage < state.totalPages) {
+                        state.currentPage++;
+                        loadTableData(toolName, tableType);
+                    }
+                };
+                prevButton.disabled = state.currentPage <= 1;
+                nextButton.disabled = state.currentPage >= state.totalPages;
+                console.log(`Boutons mis à jour: Précédent=${prevButton.disabled}, Suivant=${nextButton.disabled}`);
+            }
         } else {
             console.warn(`Pagination buttons not found for ${toolName}-${tableType}`);
         }
@@ -336,7 +348,6 @@ async function loadTableData(toolName, tableType) {
         showNotification(`Erreur chargement ${toolName}-${tableType}`, 'error');
     }
 }
-
 /**
  * Chargement des statistiques des vulnérabilités
  */
@@ -656,43 +667,46 @@ async function initSeleniumPage() {
 /**
  * Récupération des vulnérabilités par outil
  */
-async function fetchVulnerabilities(toolName) {
+async function fetchScanHistory(toolName) {
     let text = '';
     try {
-        let url = `${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=1000`;
-        if (['trivy', 'sonarqube', 'zap'].includes(toolName)) {
-            const latestScanId = await fetchLatestScanId(toolName);
-            if (!latestScanId) {
-                console.error(`Aucun scan récent pour ${toolName}`);
-                showNotification(`Aucun scan récent pour ${toolName}`, 'error');
-                return;
-            }
-            url += `&scan_id=${latestScanId}`;
-        }
-        console.log(`Fetching vulnerabilities URL: ${url}`);
-        const response = await fetch(url);
+        const response = await fetch(`${API_BASE_URL}/api/scans?tool_name=${toolName}&limit=1000`);
         text = await response.text();
-        console.log(`Raw response for ${toolName} vulnerabilities:`, text);
-        const cleanedText = text.replace(/null$/, '').trim();
-        const data = JSON.parse(cleanedText.endsWith('}') ? cleanedText : cleanedText.substring(0, cleanedText.lastIndexOf('}') + 1));
-        console.log(`${toolName} vulnerabilities API response:`, data);
+        console.log(`Raw response for ${toolName} scan history:`, text);
+        let cleanedText = text.replace(/null$/, '').trim();
+        const lastValidBracket = cleanedText.lastIndexOf('}');
+        if (lastValidBracket !== -1) {
+            cleanedText = cleanedText.substring(0, lastValidBracket + 1);
+        }
+        const data = JSON.parse(cleanedText);
+        console.log(`${toolName} scan history API response:`, data);
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
+            const historyData = data.data || [];
+            const filteredData = historyData.filter(scan => scan.tool_name?.toLowerCase() === toolName.toLowerCase());
             if (toolName === 'zap') {
-                allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts;
+                allZapHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for zap:`, filteredData);
             } else if (toolName === 'trivy') {
-                allTrivyVulnerabilities = data.data;
+                allTrivyHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for trivy:`, filteredData);
             } else if (toolName === 'sonarqube') {
-                allSonarqubeVulnerabilities = data.data;
+                allSonarQubeHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for sonarqube:`, filteredData);
+            } else if (toolName === 'selenium') {
+                allSeleniumHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for selenium:`, filteredData);
             }
             return totalItems;
         } else {
-            console.error(`Erreur vulnérabilités ${toolName}:`, data.message);
-            showNotification(`Erreur chargement vulnérabilités ${toolName}`, 'error');
+            console.error(`Erreur historique ${toolName}:`, data.message);
+            showNotification(`Erreur chargement historique ${toolName}`, 'error');
+            return 0;
         }
     } catch (error) {
-        console.error(`Erreur API ${toolName}:`, error.message, 'Raw response:', text);
-        showNotification(`Erreur chargement vulnérabilités ${toolName}: JSON invalide`, 'error');
+        console.error(`Erreur API historique ${toolName}:`, error.message, 'Raw response:', text);
+        showNotification(`Erreur chargement historique ${toolName}: JSON invalide`, 'error');
+        return 0;
     }
 }
 
@@ -765,6 +779,52 @@ async function loadToolScanHistory(toolName) {
     setupPagination(`${toolName}-history`, data.total, 50, (page) => loadToolScanHistory(toolName, page));
 }
 
+/**
+ * Récupération des vulnérabilités
+ */
+
+async function fetchVulnerabilities(toolName) {
+    let text = '';
+    try {
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=1000`);
+        text = await response.text();
+        console.log(`Raw response for ${toolName} vulnerabilities:`, text);
+        let cleanedText = text.replace(/null$/, '').trim();
+        const lastValidBracket = cleanedText.lastIndexOf('}');
+        if (lastValidBracket !== -1) {
+            cleanedText = cleanedText.substring(0, lastValidBracket + 1);
+        }
+        const data = JSON.parse(cleanedText);
+        console.log(`${toolName} vulnerabilities API response:`, data);
+        if (data.status === 'success') {
+            const totalItems = data.total || data.data.length;
+            const vulnData = data.data || [];
+            const filteredData = vulnData.filter(vuln => vuln.tool_name?.toLowerCase() === toolName.toLowerCase());
+            if (toolName === 'zap') {
+                allZapVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for zap`);
+            } else if (toolName === 'trivy') {
+                allTrivyVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for trivy`);
+            } else if (toolName === 'sonarqube') {
+                allSonarQubeVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for sonarqube`);
+            } else if (toolName === 'selenium') {
+                allSeleniumVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for selenium`);
+            }
+            return totalItems;
+        } else {
+            console.error(`Erreur vulnérabilités ${toolName}:`, data.message);
+            showNotification(`Erreur chargement vulnérabilités ${toolName}`, 'error');
+            return 0;
+        }
+    } catch (error) {
+        console.error(`Erreur API vulnérabilités ${toolName}:`, error.message, 'Raw response:', text);
+        showNotification(`Erreur chargement vulnérabilités ${toolName}: JSON invalide`, 'error');
+        return 0;
+    }
+}
 /**
  * Mise à jour de la table des vulnérabilités
  */
@@ -1032,7 +1092,7 @@ async function fetchLatestScanId(toolName) {
 async function fetchScanHistory(toolName) {
     let text = '';
     try {
-        const response = await fetch(`${API_BASE_URL}/scan_history?tool_name=${toolName}&limit=1000`);
+        const response = await fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=1000`);
         text = await response.text();
         console.log(`Raw response for ${toolName} scan history:`, text);
         let cleanedText = text.replace(/null$/, '').trim();
@@ -1045,20 +1105,19 @@ async function fetchScanHistory(toolName) {
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
             const historyData = data.data || [];
-            // Filtrer les données pour s'assurer que seules celles du bon outil sont stockées
             const filteredData = historyData.filter(scan => scan.tool_name?.toLowerCase() === toolName.toLowerCase());
             if (toolName === 'zap') {
                 allZapHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for zap`);
+                console.log(`Stored ${filteredData.length} history entries for zap:`, filteredData);
             } else if (toolName === 'trivy') {
                 allTrivyHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for trivy`);
+                console.log(`Stored ${filteredData.length} history entries for trivy:`, filteredData);
             } else if (toolName === 'sonarqube') {
                 allSonarQubeHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for sonarqube`);
+                console.log(`Stored ${filteredData.length} history entries for sonarqube:`, filteredData);
             } else if (toolName === 'selenium') {
                 allSeleniumHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for selenium`);
+                console.log(`Stored ${filteredData.length} history entries for selenium:`, filteredData);
             }
             return totalItems;
         } else {
@@ -1090,22 +1149,22 @@ function updateHistoryTable(toolName, historyData, totalItems) {
     historyData.forEach((scan, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${new Date(scan.timestamp || scan.date).toLocaleString() || 'N/A'}</td>
-            <td>${scan.target || scan.tool_name || 'N/A'}</td>
-            <td>${scan.status || 'N/A'}</td>
-            <td>${scan.total_scans || scan.total || 'N/A'}</td>
-            <td>${scan.total_high || scan.critical || 'N/A'}</td>
-            <td>${scan.total_medium || scan.medium || 'N/A'}</td>
-            <td>${scan.total_low || scan.low || 'N/A'}</td>
+            <td>${new Date(scan.scan_date).toLocaleString() || 'N/A'}</td>
+            <td>${scan.target_name || scan.tool_name || 'N/A'}</td>
+            <td>${scan.scan_status || 'N/A'}</td>
+            <td>${scan.total_issues || 'N/A'}</td>
+            <td>${scan.high_severity_count || '0'}</td>
+            <td>${scan.medium_severity_count || '0'}</td>
+            <td>${scan.low_severity_count || '0'}</td>
             <td>
-                <button class="btn btn-sm btn-info" data-scan-index="${index}">
+                <button class="btn btn-sm btn-info view-scan-details" data-scan-index="${index}">
                     <i class="fas fa-eye"></i>
                 </button>
             </td>
         `;
         tableBody.appendChild(row);
     });
-    const detailButtons = document.querySelectorAll(`#${toolName}-history-table .btn-info`);
+    const detailButtons = document.querySelectorAll(`#${toolName}-history-table .view-scan-details`);
     detailButtons.forEach(button => {
         button.addEventListener('click', () => {
             const scanIndex = button.getAttribute('data-scan-index');
@@ -1113,6 +1172,7 @@ function updateHistoryTable(toolName, historyData, totalItems) {
         });
     });
 }
+
 /**
  * Formatage du statut d'un scan pour l'affichage
  */
