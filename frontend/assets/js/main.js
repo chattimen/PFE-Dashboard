@@ -1089,49 +1089,77 @@ async function fetchLatestScanId(toolName) {
 /**
  * Récupération de l'historique des scans par outil
  */
-async function fetchScanHistory(toolName) {
-    let text = '';
-    try {
-        const response = await fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=1000`);
-        text = await response.text();
-        console.log(`Raw response for ${toolName} scan history:`, text);
-        let cleanedText = text.replace(/null$/, '').trim();
-        const lastValidBracket = cleanedText.lastIndexOf('}');
-        if (lastValidBracket !== -1) {
-            cleanedText = cleanedText.substring(0, lastValidBracket + 1);
-        }
-        const data = JSON.parse(cleanedText);
-        console.log(`${toolName} scan history API response:`, data);
-        if (data.status === 'success') {
-            const totalItems = data.total || data.data.length;
-            const historyData = data.data || [];
-            const filteredData = historyData.filter(scan => scan.tool_name?.toLowerCase() === toolName.toLowerCase());
-            if (toolName === 'zap') {
-                allZapHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for zap:`, filteredData);
-            } else if (toolName === 'trivy') {
-                allTrivyHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for trivy:`, filteredData);
-            } else if (toolName === 'sonarqube') {
-                allSonarQubeHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for sonarqube:`, filteredData);
-            } else if (toolName === 'selenium') {
-                allSeleniumHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for selenium:`, filteredData);
+function fetchScanHistory(toolName) {
+    console.log(`Fetching scan history for ${toolName} with limit=1000`);
+    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=1000`)
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${errorData.message || response.statusText}`);
+                }).catch(() => {
+                    throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${response.statusText}`);
+                });
             }
-            return totalItems;
-        } else {
-            console.error(`Erreur historique ${toolName}:`, data.message);
-            showNotification(`Erreur chargement historique ${toolName}`, 'error');
-            return 0;
-        }
-    } catch (error) {
-        console.error(`Erreur API historique ${toolName}:`, error.message, 'Raw response:', text);
-        showNotification(`Erreur chargement historique ${toolName}: JSON invalide`, 'error');
-        return 0;
-    }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Scan history response for ${toolName}:`, data);
+            if (data.status === 'success') {
+                updateScanHistoryTable(data.data, toolName);
+            } else {
+                console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
+                showNotification(`L'API a signalé une erreur pour l'historique ${toolName}: ${data.message}`, 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
+            showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
+        });
 }
+function updateScanHistoryTable(scans, toolName) {
+        
+    const tableId = `${toolName}-history-table`;
+    const tableBody = document.querySelector(`#${tableId} tbody`);
 
+    if (!tableBody) {
+        console.warn(`Table body non trouvé pour ${tableId}`);
+        return;
+    }
+    
+    // Vider la table
+    tableBody.innerHTML = '';
+    
+    // Handle empty state
+    if (!scans || scans.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center">Aucun scan trouvé</td></tr>';
+        return;
+    }
+    
+    // Remplir avec les nouvelles données
+    scans.forEach(scan => {
+        const row = document.createElement('tr');
+        
+        // Définir la classe de statut
+        row.classList.add(`status-${scan.scan_status}`);
+        
+        row.innerHTML = `
+            <td>${formatDate(scan.scan_date)}</td>
+            <td>${scan.target_name}</td>
+            <td><span class="badge status-${scan.scan_status}">${formatScanStatus(scan.scan_status)}</span></td>
+            <td>${scan.total_issues}</td>
+            <td>${scan.high_severity_count}</td>
+            <td>${scan.medium_severity_count}</td>
+            <td>${scan.low_severity_count}</td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="viewScanDetails(${scan.id})">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
 /**
  * Mise à jour de la table d'historique des scans
  */
