@@ -300,9 +300,11 @@ async function loadTableData(toolName, tableType) {
             } else if (toolName === 'selenium') {
                 paginatedHistory = allSeleniumHistory.slice(startIndex, endIndex);
             }
-            if (paginatedHistory.length === 0 && (allZapHistory || allTrivyHistory || allSonarQubeHistory || allSeleniumHistory).length > 0) {
-                console.warn('Paginated history is empty, checking data:', { zap: allZapHistory.length, trivy: allTrivyHistory.length, sonarqube: allSonarQubeHistory.length, selenium: allSeleniumHistory.length });
+            if (!paginatedHistory) {
+                console.warn(`Paginated history is undefined for ${toolName}`);
+                paginatedHistory = [];
             }
+            console.log(`Rendering history table for ${toolName} with ${paginatedHistory.length} entries`);
             updateHistoryTable(toolName, paginatedHistory, state.totalItems);
         }
 
@@ -326,6 +328,8 @@ async function loadTableData(toolName, tableType) {
             prevButton.disabled = state.currentPage <= 1;
             nextButton.disabled = state.currentPage >= state.totalPages;
             console.log(`Boutons mis à jour: Précédent=${prevButton.disabled}, Suivant=${nextButton.disabled}`);
+        } else {
+            console.warn(`Pagination buttons not found for ${toolName}-${tableType}`);
         }
     } catch (error) {
         console.error(`Erreur lors du chargement des données pour ${toolName}-${tableType}:`, error);
@@ -1040,23 +1044,32 @@ async function fetchScanHistory(toolName) {
         console.log(`${toolName} scan history API response:`, data);
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
+            const historyData = data.data || [];
+            // Filtrer les données pour s'assurer que seules celles du bon outil sont stockées
+            const filteredData = historyData.filter(scan => scan.tool_name?.toLowerCase() === toolName.toLowerCase());
             if (toolName === 'zap') {
-                allZapHistory = data.data;
+                allZapHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for zap`);
             } else if (toolName === 'trivy') {
-                allTrivyHistory = data.data;
+                allTrivyHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for trivy`);
             } else if (toolName === 'sonarqube') {
-                allSonarQubeHistory = data.data;
+                allSonarQubeHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for sonarqube`);
             } else if (toolName === 'selenium') {
-                allSeleniumHistory = data.data;
+                allSeleniumHistory = filteredData;
+                console.log(`Stored ${filteredData.length} history entries for selenium`);
             }
             return totalItems;
         } else {
             console.error(`Erreur historique ${toolName}:`, data.message);
             showNotification(`Erreur chargement historique ${toolName}`, 'error');
+            return 0;
         }
     } catch (error) {
         console.error(`Erreur API historique ${toolName}:`, error.message, 'Raw response:', text);
         showNotification(`Erreur chargement historique ${toolName}: JSON invalide`, 'error');
+        return 0;
     }
 }
 
@@ -1096,7 +1109,7 @@ function updateHistoryTable(toolName, historyData, totalItems) {
     detailButtons.forEach(button => {
         button.addEventListener('click', () => {
             const scanIndex = button.getAttribute('data-scan-index');
-            console.log(`Détails du scan ${scanIndex}:`, historyData[scanIndex]);
+            console.log(`Détails du scan ${toolName} ${scanIndex}:`, historyData[scanIndex]);
         });
     });
 }
