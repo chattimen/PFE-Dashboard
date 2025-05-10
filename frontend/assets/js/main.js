@@ -264,7 +264,6 @@ function setupPagination(tableId, totalItems, limit, callback) {
 async function loadTableData(toolName, tableType) {
     const state = paginationState[toolName][tableType];
     let allHistory; // Déplacé en haut pour être dans le scope
-    console.log(`Chargement des données pour ${toolName}-${tableType}, page: ${state.currentPage}`);
     
     try {
         if (tableType === 'vulnerabilities') {
@@ -308,7 +307,6 @@ async function loadTableData(toolName, tableType) {
                 historySource = allSeleniumHistory;
             }
             allHistory = historySource ? historySource : [];
-            console.log(`Rendering all history for ${toolName} with ${allHistory.length} entries`);
             updateHistoryTable(toolName, allHistory, allHistory.length);
         }
 
@@ -672,7 +670,6 @@ async function fetchScanHistory(toolName) {
     try {
         const response = await fetch(`${API_BASE_URL}/api/scans?tool_name=${toolName}&limit=1000`);
         text = await response.text();
-        console.log(`Raw response for ${toolName} scan history:`, text);
         let cleanedText = text.replace(/null$/, '').trim();
         const lastValidBracket = cleanedText.lastIndexOf('}');
         if (lastValidBracket !== -1) {
@@ -788,7 +785,6 @@ async function fetchVulnerabilities(toolName) {
     try {
         const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=1000`);
         text = await response.text();
-        console.log(`Raw response for ${toolName} vulnerabilities:`, text);
         let cleanedText = text.replace(/null$/, '').trim();
         const lastValidBracket = cleanedText.lastIndexOf('}');
         if (lastValidBracket !== -1) {
@@ -1090,7 +1086,6 @@ async function fetchLatestScanId(toolName) {
  * Récupération de l'historique des scans par outil
  */
 function fetchScanHistory(toolName) {
-    console.log(`Fetching scan history for ${toolName} with limit=1000`);
     fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=1000`)
         .then(response => {
             if (!response.ok) {
@@ -1103,7 +1098,6 @@ function fetchScanHistory(toolName) {
             return response.json();
         })
         .then(data => {
-            console.log(`Scan history response for ${toolName}:`, data);
             if (data.status === 'success') {
                 updateScanHistoryTable(data.data, toolName);
             } else {
@@ -1196,7 +1190,6 @@ function updateHistoryTable(toolName, historyData, totalItems) {
     detailButtons.forEach(button => {
         button.addEventListener('click', () => {
             const scanIndex = button.getAttribute('data-scan-index');
-            console.log(`Détails du scan ${toolName} ${scanIndex}:`, historyData[scanIndex]);
         });
     });
 }
@@ -1851,7 +1844,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function transformApiDataToZapFormat(vulnerabilities) {
-    console.log('=== Transforming ZAP data ===', new Date().toISOString(), vulnerabilities);
     const zapData = {
         "@programName": "ZAP",
         "@version": "2.16.0",
@@ -1868,7 +1860,6 @@ function transformApiDataToZapFormat(vulnerabilities) {
                     const riskCode = vuln.riskcode || mapSeverityToRiskCode(severity);
                     // Vérifier la cohérence entre riskcode et severity
                     const severityFromRiskCode = mapRiskCodeToSeverity(riskCode);
-                    console.log(`Vulnerability: ${vuln.title}, API severity: ${apiSeverity}, riskcode: ${riskCode}, mapped severity: ${severityFromRiskCode}`);
                     return {
                         "pluginid": vuln.id || "N/A",
                         "alertRef": vuln.id || "N/A",
@@ -1894,7 +1885,6 @@ function transformApiDataToZapFormat(vulnerabilities) {
             }
         ]
     };
-    console.log('=== Transformed ZAP data ===', zapData);
     return zapData;
 }
 
@@ -1911,7 +1901,6 @@ function mapSeverityToRiskCode(severity) {
         "info": "0"
     };
     const mappedCode = severityMap[severity.toLowerCase()] || "2";
-    console.log('Mapped severity:', severity, 'to risk code:', mappedCode);
     return mappedCode;
 }
 
@@ -1930,7 +1919,6 @@ async function loadZapData() {
         // Récupérer toutes les vulnérabilités sans limit/offset
         const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&scan_id=${latestScanId}`);
         const data = await response.json();
-        console.log('ZAP vulnerabilities API response:', data);
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
             allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts; // Stocker toutes les alertes
@@ -2142,7 +2130,6 @@ function mapRiskCodeToSeverity(riskCode) {
         "0": "Info"
     };
     const severity = riskCodeMap[riskCode] || "Medium";
-    console.log('Mapped risk code:', riskCode, 'to severity:', severity);
     return severity;
 }
 
@@ -2150,7 +2137,6 @@ function mapRiskCodeToSeverity(riskCode) {
  * Remplissage de la table des vulnérabilités (correction pour définir row correctement)
  */
 function populateVulnerabilityTable(alerts) {
-    console.log('=== Populating ZAP vulnerability table ===', new Date().toISOString(), alerts);
     const tableBody = document.querySelector('#zap-vulnerabilities-table tbody');
     if (!tableBody) {
         console.warn('Corps de la table #zap-vulnerabilities-table non trouvé');
@@ -2162,10 +2148,8 @@ function populateVulnerabilityTable(alerts) {
         return;
     }
     alerts.forEach((alert, index) => {
-        console.log(`Processing alert ${index}:`, alert);
         const row = document.createElement('tr'); // Définir row avant utilisation
         const severityLevel = alert.riskdesc?.toLowerCase() || "medium";
-        console.log(`Setting severity for ${alert.alert}:`, severityLevel);
         row.classList.add(`severity-${severityLevel}`);
         row.innerHTML = `
             <td>${alert.alert || 'N/A'}</td>
@@ -2181,7 +2165,6 @@ function populateVulnerabilityTable(alerts) {
         `;
         tableBody.appendChild(row);
     });
-    console.log('=== Table population completed ===');
     initializeEventHandlers(alerts);
 }
 function initializeEventHandlers(alerts) {
