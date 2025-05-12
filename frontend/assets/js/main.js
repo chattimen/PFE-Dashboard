@@ -631,6 +631,10 @@ async function initSonarQubePage() {
     try {
         await loadTableData('sonarqube', 'vulnerabilities');
         await loadTableData('sonarqube', 'history');
+        await loadSonarQubeIssueStats(); 
+        await fetchScanHistory('sonarqube', 50, 0);
+
+
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page SonarQube:', error);
         showNotification('Erreur lors de l\'initialisation de SonarQube', 'error');
@@ -665,45 +669,22 @@ async function initSeleniumPage() {
 /**
  * Récupération des vulnérabilités par outil
  */
-async function fetchScanHistory(toolName) {
-    let text = '';
+async function fetchScanHistory(toolName, limit = 50, offset = 0) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/scans?tool_name=${toolName}&limit=1000`);
-        text = await response.text();
-        let cleanedText = text.replace(/null$/, '').trim();
-        const lastValidBracket = cleanedText.lastIndexOf('}');
-        if (lastValidBracket !== -1) {
-            cleanedText = cleanedText.substring(0, lastValidBracket + 1);
-        }
-        const data = JSON.parse(cleanedText);
-        console.log(`${toolName} scan history API response:`, data);
+        const response = await fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}&offset=${offset}`);
+        const data = await response.json();
+
         if (data.status === 'success') {
-            const totalItems = data.total || data.data.length;
-            const historyData = data.data || [];
-            const filteredData = historyData.filter(scan => scan.tool_name?.toLowerCase() === toolName.toLowerCase());
-            if (toolName === 'zap') {
-                allZapHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for zap:`, filteredData);
-            } else if (toolName === 'trivy') {
-                allTrivyHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for trivy:`, filteredData);
-            } else if (toolName === 'sonarqube') {
-                allSonarQubeHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for sonarqube:`, filteredData);
-            } else if (toolName === 'selenium') {
-                allSeleniumHistory = filteredData;
-                console.log(`Stored ${filteredData.length} history entries for selenium:`, filteredData);
-            }
-            return totalItems;
+            updateScanHistoryTable(data.data, toolName);
+            setupPagination(`${toolName}-history`, data.total, limit, (page) => {
+                const newOffset = (page - 1) * limit;
+                fetchScanHistory(toolName, limit, newOffset);
+            });
         } else {
-            console.error(`Erreur historique ${toolName}:`, data.message);
-            showNotification(`Erreur chargement historique ${toolName}`, 'error');
-            return 0;
+            console.error(`Erreur API pour l'historique ${toolName}:`, data.message);
         }
     } catch (error) {
-        console.error(`Erreur API historique ${toolName}:`, error.message, 'Raw response:', text);
-        showNotification(`Erreur chargement historique ${toolName}: JSON invalide`, 'error');
-        return 0;
+        console.error(`Erreur réseau/API pour l'historique ${toolName}:`, error);
     }
 }
 
@@ -742,6 +723,38 @@ async function loadToolVulnerabilities(toolName, scanId = null) {
     });
     setupPagination(toolName, data.total, 50, (page) => loadToolVulnerabilities(toolName, scanId, page));
 }
+async function loadSonarQubeIssueStats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&limit=1000`);
+        const data = await response.json();
+
+        if (data.status !== 'success') {
+            console.error('Erreur de récupération des vulnérabilités SonarQube');
+            return;
+        }
+
+        const issues = data.data || [];
+
+        let bugCount = 0;
+        let vulnCount = 0;
+        let smellCount = 0;
+
+        issues.forEach(issue => {
+            const type = issue.category?.toUpperCase(); // Assuming category stores BUG, VULNERABILITY, CODE_SMELL
+            if (type === 'BUG') bugCount++;
+            else if (type === 'VULNERABILITY') vulnCount++;
+            else if (type === 'CODE_SMELL') smellCount++;
+        });
+
+        document.getElementById('sonar-bugs-count').textContent = bugCount;
+        document.getElementById('sonar-vulnerabilities-count').textContent = vulnCount;
+        document.getElementById('sonar-code-smells-count').textContent = smellCount;
+
+    } catch (error) {
+        console.error('Erreur lors du chargement des statistiques SonarQube:', error);
+    }
+}
+
 
 /**
  * Load scan history for a specific tool (used by all tools: Trivy, SonarQube, ZAP, Selenium)
