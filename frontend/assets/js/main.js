@@ -810,49 +810,38 @@ async function fetchVulnerabilities(toolName) {
     let allVulnerabilities = [];
 
     try {
-        while (true) {
-            const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${CHUNK_SIZE}&offset=${offset}`);
-            let text = await response.text();
-            let cleanedText = text.replace(/null$/, '').trim();
-            const lastValidBracket = cleanedText.lastIndexOf('}');
-            if (lastValidBracket !== -1) {
-                cleanedText = cleanedText.substring(0, lastValidBracket + 1);
-            }
-            const data = JSON.parse(cleanedText);
-            console.log(`${toolName} vulnerabilities API response (offset ${offset}):`, data);
-
-            if (data.status !== 'success') {
-                console.error(`Erreur vulnérabilités ${toolName}:`, data.message);
-                showNotification(`Erreur chargement vulnérabilités ${toolName}`, 'error');
-                break;
-            }
-
-            const vulnerabilities = data.data || [];
-            allVulnerabilities = allVulnerabilities.concat(
-                vulnerabilities.filter(vuln => vuln.tool_name?.toLowerCase() === toolName.toLowerCase())
-            );
-
-            console.log(`Fetched ${vulnerabilities.length} vulnerabilities at offset ${offset} for ${toolName}, total so far: ${allVulnerabilities.length}`);
-
-            // Stop if no more vulnerabilities are returned
-            if (vulnerabilities.length === 0 || vulnerabilities.length < CHUNK_SIZE) {
-                break;
-            }
-
-            offset += CHUNK_SIZE;
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=5000`);
+        text = await response.text();
+        let cleanedText = text.replace(/null$/, '').trim();
+        const lastValidBracket = cleanedText.lastIndexOf('}');
+        if (lastValidBracket !== -1) {
+            cleanedText = cleanedText.substring(0, lastValidBracket + 1);
         }
-
-        // Store in global arrays
-        if (toolName === 'zap') {
-            allZapVulnerabilities = allVulnerabilities;
-        } else if (toolName === 'trivy') {
-            allTrivyVulnerabilities = allVulnerabilities;
-        } else if (toolName === 'sonarqube') {
-            allSonarQubeVulnerabilities = allVulnerabilities;
+        const data = JSON.parse(cleanedText);
+        console.log(`${toolName} vulnerabilities API response:`, data);
+        if (data.status === 'success') {
+            const totalItems = data.total || data.data.length;
+            const vulnData = data.data || [];
+            const filteredData = vulnData.filter(vuln => vuln.tool_name?.toLowerCase() === toolName.toLowerCase());
+            if (toolName === 'zap') {
+                allZapVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for zap`);
+            } else if (toolName === 'trivy') {
+                allTrivyVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for trivy`);
+            } else if (toolName === 'sonarqube') {
+                allSonarQubeVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for sonarqube`);
+            } else if (toolName === 'selenium') {
+                allSeleniumVulnerabilities = filteredData;
+                console.log(`Stored ${filteredData.length} vulnerabilities for selenium`);
+            }
+            return totalItems;
+        } else {
+            console.error(`Erreur vulnérabilités ${toolName}:`, data.message);
+            showNotification(`Erreur chargement vulnérabilités ${toolName}`, 'error');
+            return 0;
         }
-
-        console.log(`Stored ${allVulnerabilities.length} vulnerabilities for ${toolName}`);
-        return allVulnerabilities.length; // Return total number of vulnerabilities
     } catch (error) {
         console.error(`Erreur API vulnérabilités ${toolName}:`, error.message, 'Raw response:', text);
         showNotification(`Erreur chargement vulnérabilités ${toolName}: JSON invalide`, 'error');
