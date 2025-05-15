@@ -725,7 +725,7 @@ async function loadToolVulnerabilities(toolName, scanId = null) {
 }
 async function loadSonarQubeIssueStats() {
     try {
-        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&limit=1000`);
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&limit=100`);
         const data = await response.json();
 
         if (data.status !== 'success') {
@@ -796,7 +796,7 @@ async function loadToolScanHistory(toolName) {
 async function fetchVulnerabilities(toolName) {
     let text = '';
     try {
-        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=1000`);
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=5000`);
         text = await response.text();
         let cleanedText = text.replace(/null$/, '').trim();
         const lastValidBracket = cleanedText.lastIndexOf('}');

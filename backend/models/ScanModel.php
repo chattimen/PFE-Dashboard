@@ -155,7 +155,30 @@ class ScanModel {
         return $this->db->fetchAll($sql);
 
     }
-    
+    /**
+     * Récupère l'historique complet des scans
+     */
+    public function getScanHistory() {
+        $sql = "SELECT 
+                    id,
+                    tool_name,
+                    target_name,
+                    scan_status,
+                    total_issues,
+                    high_severity_count,
+                    medium_severity_count,
+                    low_severity_count,
+                    raw_report,
+                    pipeline_run_id,
+                    scan_date,
+                    created_at
+                FROM 
+                    scans
+                ORDER BY 
+                    scan_date DESC";
+        
+        return $this->db->fetchAll($sql);
+    }
     /**
      * Récupère les tendances des scans par outil
      */

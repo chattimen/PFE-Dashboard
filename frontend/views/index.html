@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="./assets/css/dark-mode.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-
 </head>
 <body>
     <nav class="navbar">
@@ -32,7 +31,6 @@
     </nav>
 
     <div class="container">
-
         <div id="dashboard-page" class="page-content" style="display: block;">
             <div class="page-header">
                 <h2 class="page-title">Tableau de bord</h2>
@@ -40,6 +38,7 @@
                     <div class="filter-group">
                         <label for="period-selector">Période:</label>
                         <select id="period-selector" class="form-control">
+                            <option value="latest">Dernier</option>
                             <option value="7">7 jours</option>
                             <option value="30" selected>30 jours</option>
                             <option value="90">90 jours</option>
@@ -49,7 +48,7 @@
                     </div>
                 </div>
                 <div class="actions">
-                    <button id="download-report" class="report-link" >
+                    <button id="download-report" class="report-link">
                         <i class="fas fa-file-download"></i> Télécharger le rapport
                     </button>
                 </div>
@@ -155,7 +154,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        </tbody>
+                                    </tbody>
                                 </table>
                             </div>
                             <div class="pagination-controls">
@@ -169,6 +168,7 @@
             </div>
         </div>
 
+        <!-- Other page sections remain unchanged -->
         <div id="trivy-page" class="page-content">
             <div class="page-header">
                 <h2 class="page-title">Trivy - Scanner de vulnérabilités de conteneurs</h2>
@@ -181,7 +181,8 @@
                             <option value="high">Élevée</option>
                             <option value="medium">Moyenne</option>
                             <option value="low">Faible</option>
-                             <option value="info">Informationnelle</option> </select>
+                            <option value="info">Informationnelle</option>
+                        </select>
                     </div>
                     <div class="filter-group">
                         <label for="trivy-status-filter">Statut:</label>
@@ -204,7 +205,8 @@
                             <div class="row">
                                 <div class="col-6">
                                     <div class="stat-card">
-                                        <div class="stat-icon"><i class="fas fa-magnifying-glass"></i></div> <div class="stat-value" id="trivy-scan-count">0</div>
+                                        <div class="stat-icon"><i class="fas fa-magnifying-glass"></i></div>
+                                        <div class="stat-value" id="trivy-scan-count">0</div>
                                         <div class="stat-label">Scans effectués</div>
                                     </div>
                                 </div>
@@ -224,7 +226,8 @@
                         <div class="card-header">Vulnérabilités par Sévérité</div>
                         <div class="card-body">
                             <div class="chart-container small">
-                                <canvas id="trivy-severity-chart"></canvas> </div>
+                                <canvas id="trivy-severity-chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -240,12 +243,14 @@
                                     <th>Titre</th>
                                     <th>Sévérité</th>
                                     <th>Emplacement</th>
-                                    <th>ID</th> <th>Dernière détection</th>
+                                    <th>ID</th>
+                                    <th>Dernière détection</th>
                                     <th>Statut</th>
-                                    <th>Actions</th> </tr>
+                                    <th>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                         <div class="pagination-controls">
                             <button id="trivy-vulnerabilities-prev-page" class="btn btn-secondary">Précédent</button>
@@ -270,10 +275,11 @@
                                     <th>Critiques/Élevées</th>
                                     <th>Moyennes</th>
                                     <th>Faibles</th>
-                                    <th>Actions</th> </tr>
+                                    <th>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                         <div class="pagination-controls">
                             <button id="trivy-history-prev-page" class="btn btn-secondary">Précédent</button>
@@ -286,7 +292,7 @@
         </div>
 
         <div id="sonarqube-page" class="page-content">
-             <div class="page-header">
+            <div class="page-header">
                 <h2 class="page-title">SonarQube - Analyse de qualité du code</h2>
                 <div class="filters-container">
                     <div class="filter-group">
@@ -297,7 +303,8 @@
                             <option value="high">Élevée</option>
                             <option value="medium">Moyenne</option>
                             <option value="low">Faible</option>
-                             <option value="info">Informationnelle</option> </select>
+                            <option value="info">Informationnelle</option>
+                        </select>
                     </div>
                     <div class="filter-group">
                         <label for="sonar-status-filter">Statut:</label>
@@ -313,11 +320,12 @@
                         <label for="sonar-project-filter">Projet:</label>
                         <select id="sonar-project-filter" class="form-control">
                             <option value="">Tous les projets</option>
-                            </select>
+                        </select>
                     </div>
                     <div class="filter-group">
-                        <label for="sonar-period-selector">Période:</label>
-                        <select id="sonar-period-selector" class="form-control">
+                        <label for="period-selector">Période:</label>
+                        <select id="period-selector" class="form-control">
+                            <option value="latest">Dernier</option>
                             <option value="7">7 jours</option>
                             <option value="30" selected>30 jours</option>
                             <option value="90">90 jours</option>
@@ -359,7 +367,8 @@
                 <div class="col-3">
                     <div class="card">
                         <div class="stat-card">
-                            <div class="stat-icon"><i class="fas fa-chart-line"></i></div> <div class="stat-value" id="sonar-coverage">0%</div>
+                            <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                            <div class="stat-value" id="sonar-coverage">0%</div>
                             <div class="stat-label">Couverture</div>
                         </div>
                     </div>
@@ -415,7 +424,7 @@
                                 </tr>
                             </thead>
                             <tbody id="sonarqube-vulnerabilities-table-body">
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
                     <div class="pagination-controls">
@@ -444,7 +453,7 @@
                                 </tr>
                             </thead>
                             <tbody id="sonarqube-history-table-body">
-                                </tbody>
+                            </tbody>
                         </table>
                         <div class="pagination-controls">
                             <button id="sonarqube-history-prev-page" class="btn btn-secondary">Précédent</button>
@@ -455,19 +464,18 @@
                 </div>
             </div>
 
-             <div id="issue-modal" class="modal" style="display: none;">
+            <div id="issue-modal" class="modal" style="display: none;">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2>Détails du problème</h2>
                         <span class="close-modal">&times;</span>
                     </div>
                     <div class="modal-body">
-                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Contenu de la page OWASP ZAP -->
         <div id="zap-page" class="page-content">
             <div class="page-header">
                 <h2 class="page-title">OWASP ZAP - Scanner de vulnérabilités Web</h2>
@@ -610,7 +618,7 @@
                                 </tr>
                             </thead>
                             <tbody id="zap-history-table-body">
-                                </tbody>
+                            </tbody>
                         </table>
                         <div class="pagination-controls">
                             <button id="zap-history-prev-page" class="btn btn-secondary">Précédent</button>
@@ -642,13 +650,14 @@
                             <option value="">Tous</option>
                             <option value="success">Succès</option>
                             <option value="failed">Échec</option>
-                            <option value="warning">Avertissement</option> </select>
+                            <option value="warning">Avertissement</option>
+                        </select>
                     </div>
                     <div class="filter-group">
                         <label for="selenium-test-filter">Test Suite:</label>
                         <select id="selenium-test-filter" class="form-control">
                             <option value="">Toutes les suites</option>
-                            </select>
+                        </select>
                     </div>
                     <div class="filter-group">
                         <label for="selenium-period-selector">Période:</label>
@@ -667,7 +676,8 @@
                 <div class="col-3">
                     <div class="card">
                         <div class="stat-card">
-                            <div class="stat-icon"><i class="fas fa-play"></i></div> <div class="stat-value" id="selenium-tests-count">0</div>
+                            <div class="stat-icon"><i class="fas fa-play"></i></div>
+                            <div class="stat-value" id="selenium-tests-count">0</div>
                             <div class="stat-label">Tests exécutés</div>
                         </div>
                     </div>
@@ -741,14 +751,15 @@
                             <thead>
                                 <tr>
                                     <th>Nom du test</th>
-                                    <th>Suite</th> <th>Date</th>
+                                    <th>Suite</th>
+                                    <th>Date</th>
                                     <th>Durée</th>
                                     <th>Erreur</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
 
@@ -768,16 +779,18 @@
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Suite</th> <th>Statut</th>
+                                    <th>Suite</th>
+                                    <th>Statut</th>
                                     <th>Total</th>
                                     <th>Succès</th>
                                     <th>Échecs</th>
-                                    <th>Ignorés</th> <th>Durée</th>
+                                    <th>Ignorés</th>
+                                    <th>Durée</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                         <div class="pagination-controls">
                             <button id="selenium-history-prev-page" class="btn btn-secondary">Précédent</button>
@@ -795,23 +808,22 @@
                         <span class="close-modal">&times;</span>
                     </div>
                     <div class="modal-body">
-                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-
-
-    </div> <div id="notification-container"></div>
+    </div>
+    <div id="notification-container"></div>
     <script src="./assets/js/api.js"></script>
     <script src="./assets/js/main.js"></script>
     <script src="./assets/js/charts.js"></script>
-   
 
     <footer class="footer">
         <div class="footer-container">
             <p>&copy; 2025 Dashboard de Sécurité. Tous droits réservés.</p>
-             </div>
-     </footer>
+        </div>
+    </footer>
 
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93ea256e292bbfec',t:'MTc0NzA1NTMyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='../assets/js/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
