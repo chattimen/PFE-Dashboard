@@ -1005,8 +1005,12 @@ async function loadSonarQubeIssueStats() {
     const periodSelector = document.getElementById('period-selector');
     const days = periodSelector ? parseInt(periodSelector.value) || 30 : 30;
     try {
+<<<<<<< HEAD
         const limit = getDynamicLimit(days, 'sonarqube');
         const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&days=${days}&limit=${limit}`);
+=======
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&limit=100`);
+>>>>>>> 17d3981 (okay point 0)
         const data = await response.json();
 
         if (data.status !== 'success') {
@@ -1077,8 +1081,12 @@ async function loadToolScanHistory(toolName) {
 async function fetchVulnerabilities(toolName, days = 30) {
     let text = '';
     try {
+<<<<<<< HEAD
         const limit = getDynamicLimit(days, toolName);
         const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&days=${days}&limit=${limit}`);
+=======
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=5000`);
+>>>>>>> 17d3981 (okay point 0)
         text = await response.text();
         let cleanedText = text.replace(/null$/, '').trim();
         const lastValidBracket = cleanedText.lastIndexOf('}');
