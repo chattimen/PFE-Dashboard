@@ -273,19 +273,27 @@ async function loadTableData(toolName, tableType) {
             const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, state.totalItems);
             if (toolName === 'zap') {
                 paginatedData = allZapVulnerabilities.slice(startIndex, endIndex) || [];
-                console.log(`Paginated ZAP data (page ${state.currentPage}, items ${startIndex}-${endIndex}):`, paginatedData.slice(0, 5));
                 // Normalize ZAP data with Trivy-like fields
-                const currentTime = new Date().toLocaleString('fr-FR', { timeZone: 'CET' });
-                processZapData({ site: [{ alerts: paginatedData.map((alert, index) => ({
-                    alert: alert.alert || alert.description || alert.desc || alert.name || 'N/A',
-                    riskdesc: alert.riskdesc || alert.severity || 'medium',
-                    uri: alert.uri || alert.url || alert.location || 'N/A',
-                    category: alert.category || alert.type || 'security',
-                    status: alert.status || 'open',
-                    reference: alert.reference || alert.link || '#',
-                    id: `zap-${index + startIndex}`, // Pseudo-ID
-                    lastDetected: currentTime // Pseudo-timestamp
-                })) }] }, state.totalItems);
+                processZapData({
+                    site: [{
+                        alerts: paginatedData.map((vuln, index) => ({
+                            id: vuln.id,
+                            vulnerability_id: vuln.vulnerability_id,
+                            title: vuln.title || 'N/A',
+                            severity: vuln.severity?.toLowerCase() || 'medium',
+                            category: vuln.category || 'security',
+                            status: vuln.status || 'open',
+                            description: vuln.description || 'Aucune description disponible',
+                            remediation: vuln.remediation || 'Aucune recommandation disponible',
+                            location: vuln.location || 'N/A',
+                            tool_name: vuln.tool_name || 'zap',
+                            last_detected: vuln.last_detected,
+                            instances: [{ uri: vuln.location }]
+                        }))
+                        
+                    }]
+                }, state.totalItems);
+                             
             } else if (toolName === 'trivy') {
                 paginatedData = allTrivyVulnerabilities.slice(startIndex, endIndex) || [];
                 console.log(`Paginated Trivy data (page ${state.currentPage}, items ${startIndex}-${endIndex}):`, paginatedData.slice(0, 5));
@@ -877,7 +885,7 @@ function updateVulnerabilitiesTable(toolName, vulnerabilities, totalCount) {
             <td>${formatDate(vuln.last_detected)}</td>
             <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
             <td>
-                <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
+                <button class="btn btn-sm btn-info view-zap-details" data-vuln='${JSON.stringify(vuln)}'>   
                     <i class="fas fa-info-circle"></i>
                 </button>
                 <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
@@ -885,7 +893,15 @@ function updateVulnerabilitiesTable(toolName, vulnerabilities, totalCount) {
                 </button>
             </td>
         `;
-        tableBody.appendChild(row);
+        if (toolName === 'zap') {
+            document.querySelectorAll('.view-zap-details').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const vuln = JSON.parse(btn.getAttribute('data-vuln'));
+                    showVulnerabilityModal(vuln);
+                });
+            });
+        }
+        
     });
     const countElement = document.getElementById(`${toolName}-vulnerability-count`);
     if (countElement) countElement.textContent = totalCount; // Utiliser le compte total
@@ -973,7 +989,7 @@ function showVulnerabilityModal(vuln) {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>${vuln.title}</h2>
+                <h2>${vuln.title || vuln.alert || vuln.name || 'Sans titre'}</h2>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
@@ -987,17 +1003,25 @@ function showVulnerabilityModal(vuln) {
                     <p><strong>Détectée:</strong> ${formatDate(vuln.first_detected)}</p>
                     <p><strong>Dernière détection:</strong> ${formatDate(vuln.last_detected)}</p>
                     
-                    <h3>Description</h3>
+                    <h2>${vuln.title || 'Sans titre'}</h2>
+                    <p><strong>Emplacement:</strong> ${vuln.location || 'N/A'}</p>
+                    <p><strong>Catégorie:</strong> ${vuln.category || 'N/A'}</p>
+                    <p><strong>Description:</strong></p>
                     <div class="description-box">
                         ${vuln.description || 'Aucune description disponible'}
                     </div>
-                    
-                    <h3>Recommandation</h3>
+                    <p><strong>Recommandation:</strong></p>
                     <div class="remediation-box">
                         ${vuln.remediation || 'Aucune recommandation disponible'}
                     </div>
-                </div>
-                
+                    <h3>Instances</h3>
+                    <div class="instances-box">
+                        ${vuln.instances?.length > 0
+                            ? vuln.instances.map(inst => `<div>${inst.uri}</div>`).join('')
+                            : 'Aucune instance disponible'}
+                    </div>
+
+                                    
                 <div class="modal-actions">
                     <button class="btn btn-success" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">Marquer comme corrigé</button>
                     <button class="btn btn-warning" onclick="updateVulnerabilityStatus(${vuln.id}, 'false_positive')">Faux positif</button>
@@ -1997,7 +2021,7 @@ function processZapData(data, totalItems) {
         }
 
         // Populate vulnerabilities table
-        populateVulnerabilityTable('zap', alerts, totalItems || alerts.length);
+        populateVulnerabilityTable(alerts, totalItems);
     } catch (error) {
         console.error('Erreur traitement ZAP:', error);
         showNotification('Erreur traitement données ZAP', 'error');
@@ -2179,53 +2203,43 @@ function mapRiskCodeToSeverity(riskCode) {
 /**
  * Remplissage de la table des vulnérabilités
  */
-function populateVulnerabilityTable(toolName, data, totalItems) {
-    const tableBody = document.getElementById(`${toolName}-vulnerabilities-table-body`);
+function populateVulnerabilityTable(alerts, totalItems) {
+    const tableBody = document.querySelector('#zap-vulnerabilities-table tbody');
     if (!tableBody) {
-        console.warn(`Table body not found for ${toolName}`);
+        console.warn('Corps de la table #zap-vulnerabilities-table non trouvé');
         return;
     }
-
-    tableBody.innerHTML = ''; // Clear existing rows
-    console.log(`Populating ${toolName} vulnerabilities table with`, data.slice(0, 5), 'Total:', totalItems);
-
-    if (!data || !Array.isArray(data) || data.length === 0) {
-        console.warn(`No valid data for ${toolName} vulnerabilities table`);
-        tableBody.innerHTML = '<tr><td colspan="6">Aucune vulnérabilité trouvée</td></tr>';
+    tableBody.innerHTML = '';
+    if (!alerts || alerts.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
         return;
     }
-
-    data.forEach((item, index) => {
-        try {
-            const row = document.createElement('tr');
-            // Map ZAP fields to table columns based on screenshot and earlier data
-            const titre = item.alert || item.description || item.desc || item.name || 'N/A'; // Use description for Titre
-            const severite = item.riskdesc || item.severity || 'medium'; // Default to 'medium' if missing
-            const emplacement = item.uri || item.url || item.location || 'N/A'; // Use URL field
-            const categorie = item.category || item.type || 'security'; // Default to 'security'
-            const statut = item.status || 'open'; // Default to 'open'
-            const reference = item.reference || item.link || '#'; // Link for Actions
-
-            row.innerHTML = `
-                <td>${titre}</td>
-                <td>${severite}</td>
-                <td>${emplacement}</td>
-                <td>${categorie}</td>
-                <td>${statut}</td>
-                <td><a href="${reference}" target="_blank">Lien</a></td>
-            `;
-            tableBody.appendChild(row);
-        } catch (error) {
-            console.error(`Erreur traitement item ${index} pour ${toolName}:`, error, 'Item:', item);
-        }
+    alerts.forEach((alert, index) => {
+        const row = document.createElement('tr');
+        const severityLevel = alert.riskdesc?.toLowerCase() || "medium";
+        row.classList.add(`severity-${severityLevel}`);
+        row.innerHTML = `
+            <td>${alert.alert || 'N/A'}</td>
+            <td><span class="badge severity-${severityLevel}">${alert.riskdesc || 'Medium'}</span></td>
+            <td>${alert.uri || (alert.instances && alert.instances[0]?.uri) || 'N/A'}</td>
+            <td>${alert.category || 'security'}</td>
+            <td>${alert.status || 'open'}</td>
+            <td>
+                <button class="btn btn-sm btn-info" data-alert-index="${index}">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
     });
-
+    initializeEventHandlers(alerts);
     // Update total count display
-    const totalElement = document.getElementById(`${toolName}-total-vulnerabilities`);
+    const totalElement = document.getElementById('zap-total-vulnerabilities');
     if (totalElement) {
         totalElement.textContent = totalItems;
     }
 }
+
 function initializeEventHandlers(alerts) {
     const detailButtons = document.querySelectorAll('#zap-vulnerabilities-table-body .btn-info');
     detailButtons.forEach(button => {
