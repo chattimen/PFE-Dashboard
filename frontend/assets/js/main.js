@@ -274,14 +274,17 @@ async function loadTableData(toolName, tableType) {
             if (toolName === 'zap') {
                 paginatedData = allZapVulnerabilities.slice(startIndex, endIndex) || [];
                 console.log(`Paginated ZAP data (page ${state.currentPage}, items ${startIndex}-${endIndex}):`, paginatedData.slice(0, 5));
-                // Normalize ZAP data for table
-                processZapData({ site: [{ alerts: paginatedData.map(alert => ({
+                // Normalize ZAP data with Trivy-like fields
+                const currentTime = new Date().toLocaleString('fr-FR', { timeZone: 'CET' });
+                processZapData({ site: [{ alerts: paginatedData.map((alert, index) => ({
                     alert: alert.alert || alert.description || alert.desc || alert.name || 'N/A',
                     riskdesc: alert.riskdesc || alert.severity || 'medium',
                     uri: alert.uri || alert.url || alert.location || 'N/A',
                     category: alert.category || alert.type || 'security',
                     status: alert.status || 'open',
-                    reference: alert.reference || alert.link || '#'
+                    reference: alert.reference || alert.link || '#',
+                    id: `zap-${index + startIndex}`, // Pseudo-ID
+                    lastDetected: currentTime // Pseudo-timestamp
                 })) }] }, state.totalItems);
             } else if (toolName === 'trivy') {
                 paginatedData = allTrivyVulnerabilities.slice(startIndex, endIndex) || [];
