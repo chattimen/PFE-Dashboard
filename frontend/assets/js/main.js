@@ -179,27 +179,93 @@ function updateTheme() {
  * Initialisation de la page du tableau de bord principal
  */
 function initDashboard() {
-    // Récupérer la période sélectionnée
     const periodSelector = document.getElementById('period-selector');
-    const days = periodSelector ? parseInt(periodSelector.value) : 30;
+    const days = periodSelector ? parseInt(periodSelector.value) || 1 : 1;
     
-    // Vérifier si les éléments requis existent avant de charger les données
-    if (document.getElementById('vulnerability-distribution-chart')) {
-        loadVulnerabilityStats(days);
+    updatePeriodBasedData(days);
+    periodSelector.addEventListener('change', (e) => {
+        const newDays = parseInt(e.target.value) || 1;
+        updatePeriodBasedData(newDays);
+    });
+
+    function updatePeriodBasedData(days) {
+        Promise.all([
+            fetchVulnerabilities('trivy', days),
+            fetchVulnerabilities('zap', days),
+            fetchVulnerabilities('sonarqube', days),
+            fetchVulnerabilities('selenium', days)
+        ]).then(([trivyTotal, zapTotal, sonarqubeTotal, seleniumTotal]) => {
+            const totals = {
+                critical: 0, high: 0, medium: 0, low: 0
+            };
+            [allTrivyVulnerabilities, allZapVulnerabilities, allSonarQubeVulnerabilities, allSeleniumVulnerabilities].forEach(vulns => {
+                vulns.forEach(vuln => {
+                    if (vuln.severity === 'Critical') totals.critical++;
+                    else if (vuln.severity === 'High') totals.high++;
+                    else if (vuln.severity === 'Medium') totals.medium++;
+                    else if (vuln.severity === 'Low') totals.low++;
+                });
+            });
+            document.getElementById('critical-count').textContent = totals.critical;
+            document.getElementById('high-count').textContent = totals.high;
+            document.getElementById('medium-count').textContent = totals.medium;
+            document.getElementById('low-count').textContent = totals.low;
+            renderDashboardCharts(totals, days);
+        }).catch(error => {
+            console.error('Erreur lors du chargement du tableau de bord:', error);
+            showNotification('Erreur lors du chargement du tableau de bord', 'error');
+        });
     }
-    
-    if (document.getElementById('scan-trends-chart')) {
-        loadScanStats(days);
-        loadScanTrends(days);
+}
+
+function renderDashboardCharts(totals, days) {
+    const ctxDistribution = document.getElementById('distribution-chart');
+    if (!ctxDistribution) {
+        console.error('Canvas element #distribution-chart not found');
+        return;
     }
-    
-    if (document.getElementById('vulnerability-trends-chart')) {
-        loadVulnerabilityTrends(days);
+    if (window.distributionChart) window.distributionChart.destroy();
+    window.distributionChart = new Chart(ctxDistribution, {
+        type: 'pie',
+        data: {
+            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
+            datasets: [{
+                data: [totals.critical, totals.high, totals.medium, totals.low],
+                backgroundColor: ['#ff6384', '#ff9f40', '#ffcd56', '#4bc0c0']
+            }]
+        },
+        options: {
+            responsive: true,
+            title: { display: true, text: `Distribution (${days === 1 ? 'Dernier' : days + ' jours'})` }
+        }
+    });
+
+    const ctxEvolution = document.getElementById('evolution-chart');
+    if (!ctxEvolution) {
+        console.error('Canvas element #evolution-chart not found');
+        return;
     }
-    
-    if (document.getElementById('latest-scans-table')) {
-        loadLatestScans();
-    }
+    if (window.evolutionChart) window.evolutionChart.destroy();
+    window.evolutionChart = new Chart(ctxEvolution, {
+        type: 'line',
+        data: {
+            labels: ['5/9', '5/10', '5/11', '5/12', '5/13', '5/14', '5/15', '5/16'],
+            datasets: [{
+                label: 'Critique', data: [0, 0, 0, 0, 0, 0, 0, totals.critical], borderColor: '#ff6384', fill: false
+            }, {
+                label: 'Élevée', data: [0, 0, 0, 0, 0, 0, 0, totals.high], borderColor: '#ff9f40', fill: false
+            }, {
+                label: 'Moyenne', data: [0, 0, 0, 0, 0, 0, 0, totals.medium], borderColor: '#ffcd56', fill: false
+            }, {
+                label: 'Faible', data: [0, 0, 0, 0, 0, 0, 0, totals.low], borderColor: '#4bc0c0', fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            title: { display: true, text: 'Évolution des vulnérabilités' },
+            scales: { yAxes: [{ ticks: { beginAtZero: true } }] }
+        }
+    });
 }
 
 /**
@@ -614,58 +680,267 @@ function updateChartTheme(chart) {
 /**
  * Initialisation de la page Trivy
  */
-async function initTrivyPage() {
-    try {
-        await loadTableData('trivy', 'vulnerabilities');
-        await loadTableData('trivy', 'history');
-    } catch (error) {
-        console.error('Erreur lors de l\'initialisation de la page Trivy:', error);
-        showNotification('Erreur lors de l\'initialisation de Trivy', 'error');
+function initTrivyPage() {
+    const periodSelector = document.getElementById('trivy-period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) || 1 : 1;
+    
+    loadTrivyData(days);
+    periodSelector.addEventListener('change', (e) => {
+        const newDays = parseInt(e.target.value) || 1;
+        loadTrivyData(newDays);
+    });
+
+    function loadTrivyData(days) {
+        fetchVulnerabilities('trivy', days).then(total => {
+            updateTrivyOverview(total);
+            renderTrivyCharts(allTrivyVulnerabilities, days);
+            populateVulnerabilityTable('trivy', allTrivyVulnerabilities.slice(0, ITEMS_PER_PAGE));
+            setupPagination('trivy', 'vulnerabilities', total, (page) => {
+                const start = (page - 1) * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                populateVulnerabilityTable('trivy', allTrivyVulnerabilities.slice(start, end));
+            });
+        }).catch(error => {
+            console.error('Erreur lors du chargement des données Trivy:', error);
+            showNotification('Erreur lors du chargement des données Trivy', 'error');
+        });
     }
 }
 
 /**
  * Initialisation de la page SonarQube
  */
-async function initSonarQubePage() {
-    try {
-        await loadTableData('sonarqube', 'vulnerabilities');
-        await loadTableData('sonarqube', 'history');
-        await loadSonarQubeIssueStats(); 
-        await fetchScanHistory('sonarqube', 50, 0);
+function initSonarQubePage() {
+    const periodSelector = document.getElementById('sonarqube-period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) || 1 : 1;
+    
+    loadSonarQubeIssueStats(days);
+    periodSelector.addEventListener('change', (e) => {
+        const newDays = parseInt(e.target.value) || 1;
+        loadSonarQubeIssueStats(newDays);
+    });
 
-
-    } catch (error) {
-        console.error('Erreur lors de l\'initialisation de la page SonarQube:', error);
-        showNotification('Erreur lors de l\'initialisation de SonarQube', 'error');
+    function loadSonarQubeIssueStats(days) {
+        fetchVulnerabilities('sonarqube', days).then(() => {
+            const issues = allSonarQubeVulnerabilities;
+            let bugCount = 0, vulnCount = 0, smellCount = 0;
+            issues.forEach(issue => {
+                if (issue.category === 'BUG') bugCount++;
+                else if (issue.category === 'VULNERABILITY') vulnCount++;
+                else if (issue.category === 'CODE_SMELL') smellCount++;
+            });
+            document.getElementById('sonar-bugs-count').textContent = bugCount;
+            document.getElementById('sonar-vulnerabilities-count').textContent = vulnCount;
+            document.getElementById('sonar-code-smells-count').textContent = smellCount;
+            renderSonarQubeCharts(issues, days);
+            populateSonarQubeIssuesTable(issues);
+        }).catch(error => {
+            console.error('Erreur lors du chargement des données SonarQube:', error);
+            showNotification('Erreur lors du chargement des données SonarQube', 'error');
+        });
     }
 }
 
 /**
  * Initialisation de la page OWASP ZAP
  */
-async function initZapPage() {
-    try {
-        await loadTableData('zap', 'vulnerabilities');
-        await loadTableData('zap', 'history');
-    } catch (error) {
-        console.error('Erreur lors de l\'initialisation de la page ZAP:', error);
-        showNotification('Erreur lors de l\'initialisation de ZAP', 'error');
-    }
+function initZapPage() {
+    const periodSelector = document.getElementById('zap-period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) || 1 : 1;
+    
+    loadZapData(days);
+    periodSelector.addEventListener('change', (e) => {
+        const newDays = parseInt(e.target.value) || 1;
+        loadZapData(newDays);
+    });
 }
 /**
  * Initialisation de la page Selenium
  */
-async function initSeleniumPage() {
-    try {
-        await loadTableData('selenium', 'vulnerabilities');
-        await loadTableData('selenium', 'history');
-    } catch (error) {
-        console.error('Erreur lors de l\'initialisation de la page Selenium:', error);
-        showNotification('Erreur lors de l\'initialisation de Selenium', 'error');
+function initSeleniumPage() {
+    const periodSelector = document.getElementById('selenium-period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) || 1 : 1;
+    
+    loadSeleniumData(days);
+    periodSelector.addEventListener('change', (e) => {
+        const newDays = parseInt(e.target.value) || 1;
+        loadSeleniumData(newDays);
+    });
+
+    function loadSeleniumData(days) {
+        fetchVulnerabilities('selenium', days).then(total => {
+            updateSeleniumOverview(total);
+            renderSeleniumCharts(allSeleniumVulnerabilities, days);
+            populateFailedTestsTable(allSeleniumVulnerabilities.slice(0, ITEMS_PER_PAGE));
+            setupPagination('selenium', 'tests', total, (page) => {
+                const start = (page - 1) * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                populateFailedTestsTable(allSeleniumVulnerabilities.slice(start, end));
+            });
+        }).catch(error => {
+            console.error('Erreur lors du chargement des données Selenium:', error);
+            showNotification('Erreur lors du chargement des données Selenium', 'error');
+        });
     }
 }
+/**
+ * Updates Trivy overview with total vulnerabilities
+ */
+function updateTrivyOverview(total) {
+    document.getElementById('trivy-scans-count').textContent = total > 0 ? 1 : 0; // Assume 1 scan for now
+    document.getElementById('trivy-vulnerabilities-count').textContent = total;
+}
+/**
+ * Renders Trivy charts based on vulnerabilities
+ */
+function renderTrivyCharts(vulnerabilities, days) {
+    const ctx = document.getElementById('trivy-severity-chart');
+    if (!ctx) {
+        console.error('Canvas element #trivy-severity-chart not found');
+        return;
+    }
+    if (window.trivyChart) window.trivyChart.destroy();
+    window.trivyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
+            datasets: [{
+                label: 'Vulnérabilités',
+                data: [
+                    vulnerabilities.filter(v => v.severity === 'Critical').length,
+                    vulnerabilities.filter(v => v.severity === 'High').length,
+                    vulnerabilities.filter(v => v.severity === 'Medium').length,
+                    vulnerabilities.filter(v => v.severity === 'Low').length
+                ],
+                backgroundColor: ['#ff6384', '#ff9f40', '#ffcd56', '#4bc0c0']
+            }]
+        },
+        options: {
+            responsive: true,
+            title: { display: true, text: `Vulnérabilités par sévérité (${days === 1 ? 'Dernier' : days + ' jours'})` }
+        }
+    });
+}
+/**
+ * Populates the failed tests table for Selenium
+ */
+function populateFailedTestsTable(vulnerabilities) {
+    const tableBody = document.querySelector('#selenium-failed-tests-table tbody');
+    if (!tableBody) {
+        console.warn('Table body #selenium-failed-tests-table tbody not found');
+        return;
+    }
+    tableBody.innerHTML = '';
+    const failedTests = vulnerabilities.filter(v => v.status === 'Failed');
+    if (!failedTests || failedTests.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6">Aucun test échoué</td></tr>';
+        return;
+    }
+    failedTests.forEach(test => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${test.name || 'N/A'}</td>
+            <td>${test.suite || 'N/A'}</td>
+            <td>${test.date || 'N/A'}</td>
+            <td>${test.duration || 'N/A'}</td>
+            <td>${test.error || 'N/A'}</td>
+            <td><button class="btn">Actions</button></td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
 
+/**
+ * Renders SonarQube charts based on issues
+ */
+function renderSonarQubeCharts(issues, days) {
+    const ctxEvolution = document.getElementById('sonarqube-evolution-chart');
+    if (!ctxEvolution) {
+        console.error('Canvas element #sonarqube-evolution-chart not found');
+        return;
+    }
+    if (window.sonarqubeEvolutionChart) window.sonarqubeEvolutionChart.destroy();
+    window.sonarqubeEvolutionChart = new Chart(ctxEvolution, {
+        type: 'line',
+        data: {
+            labels: ['5/9', '5/10', '5/11', '5/12', '5/13', '5/14', '5/15', '5/16'],
+            datasets: [{
+                label: 'Bugs', data: [0, 0, 0, 0, 0, 0, 0, issues.filter(i => i.category === 'BUG').length], borderColor: '#ff6384', fill: false
+            }, {
+                label: 'Vulnérabilités', data: [0, 0, 0, 0, 0, 0, 0, issues.filter(i => i.category === 'VULNERABILITY').length], borderColor: '#ff9f40', fill: false
+            }, {
+                label: 'Code Smells', data: [0, 0, 0, 0, 0, 0, 0, issues.filter(i => i.category === 'CODE_SMELL').length], borderColor: '#ffcd56', fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            title: { display: true, text: 'Évolution des problèmes' }
+        }
+    });
+}
+/**
+ * Updates Selenium overview with total tests
+ */
+function updateSeleniumOverview(total) {
+    document.getElementById('selenium-tests-count').textContent = total;
+    document.getElementById('selenium-success-rate').textContent = total > 0 ? '100%' : '0%'; // Placeholder
+    document.getElementById('selenium-failed-count').textContent = 0; // Placeholder
+    document.getElementById('selenium-avg-duration').textContent = '0s'; // Placeholder
+}
+/**
+ * Renders Selenium charts based on test results
+ */
+function renderSeleniumCharts(vulnerabilities, days) {
+    const ctxResults = document.getElementById('selenium-results-chart');
+    if (!ctxResults) {
+        console.error('Canvas element #selenium-results-chart not found');
+        return;
+    }
+    if (window.seleniumResultsChart) window.seleniumResultsChart.destroy();
+    window.seleniumResultsChart = new Chart(ctxResults, {
+        type: 'bar',
+        data: {
+            labels: ['Succès', 'Échecs'],
+            datasets: [{
+                label: 'Tests',
+                data: [vulnerabilities.filter(v => v.status === 'Success').length, vulnerabilities.filter(v => v.status === 'Failed').length],
+                backgroundColor: ['#4bc0c0', '#ff6384']
+            }]
+        },
+        options: {
+            responsive: true,
+            title: { display: true, text: `Résultats (${days === 1 ? 'Dernier' : days + ' jours'})` }
+        }
+    });
+}
+/**
+ * Populates the SonarQube issues table
+ */
+function populateSonarQubeIssuesTable(issues) {
+    const tableBody = document.querySelector('#sonarqube-issues-table tbody');
+    if (!tableBody) {
+        console.warn('Table body #sonarqube-issues-table tbody not found');
+        return;
+    }
+    tableBody.innerHTML = '';
+    if (!issues || issues.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7">Aucun problème</td></tr>';
+        return;
+    }
+    issues.forEach(issue => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${issue.title || 'N/A'}</td>
+            <td>${issue.category || 'N/A'}</td>
+            <td>${issue.severity || 'N/A'}</td>
+            <td>${issue.file || 'N/A'}</td>
+            <td>${issue.line || 'N/A'}</td>
+            <td>${issue.status || 'N/A'}</td>
+            <td><button class="btn">Actions</button></td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
 /**
  * Récupération des vulnérabilités par outil
  */
@@ -723,9 +998,15 @@ async function loadToolVulnerabilities(toolName, scanId = null) {
     });
     setupPagination(toolName, data.total, 50, (page) => loadToolVulnerabilities(toolName, scanId, page));
 }
+/**
+ * Chargement des statistiques SonarQube
+ */
 async function loadSonarQubeIssueStats() {
+    const periodSelector = document.getElementById('period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) || 30 : 30;
     try {
-        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&limit=100`);
+        const limit = getDynamicLimit(days, 'sonarqube');
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=sonarqube&days=${days}&limit=${limit}`);
         const data = await response.json();
 
         if (data.status !== 'success') {
@@ -740,7 +1021,7 @@ async function loadSonarQubeIssueStats() {
         let smellCount = 0;
 
         issues.forEach(issue => {
-            const type = issue.category?.toUpperCase(); // Assuming category stores BUG, VULNERABILITY, CODE_SMELL
+            const type = issue.category?.toUpperCase();
             if (type === 'BUG') bugCount++;
             else if (type === 'VULNERABILITY') vulnCount++;
             else if (type === 'CODE_SMELL') smellCount++;
@@ -793,10 +1074,11 @@ async function loadToolScanHistory(toolName) {
  * Récupération des vulnérabilités
  */
 
-async function fetchVulnerabilities(toolName) {
+async function fetchVulnerabilities(toolName, days = 30) {
     let text = '';
     try {
-        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=5000`);
+        const limit = getDynamicLimit(days, toolName);
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&days=${days}&limit=${limit}`);
         text = await response.text();
         let cleanedText = text.replace(/null$/, '').trim();
         const lastValidBracket = cleanedText.lastIndexOf('}');
@@ -1095,11 +1377,49 @@ async function fetchLatestScanId(toolName) {
     }
 }
 
+function getDynamicLimit(days, toolName) {
+    const tool = toolName.toLowerCase();
+    
+    // For "Dernier" (latest scan), use a low limit to fetch only the most recent scan's data
+    if (days === 1) {
+        if (tool === 'trivy') return 2000; // Trivy: ~1778 vulnerabilities/scan, so cover one scan
+        if (tool === 'zap') return 500; // ZAP: ~310 vulnerabilities, so cover one scan
+        if (tool === 'sonarqube') return 1000; // SonarQube: Unknown, assume moderate volume
+        if (tool === 'selenium') return 500; // Selenium: Assume similar to ZAP
+        return 500; // Default for other tools
+    }
+    
+    // For other periods, scale limit based on expected data volume
+    if (days <= 7) { // "7 jours"
+        if (tool === 'trivy') return 10000; // Trivy: ~5-6 scans (13 total / 30 days * 7 days), ~8900-10668 vulnerabilities
+        if (tool === 'zap') return 1500; // ZAP: ~2-3 scans, ~600-900 vulnerabilities
+        if (tool === 'sonarqube') return 5000; // SonarQube: Unknown, assume moderate-high volume
+        if (tool === 'selenium') return 1500; // Selenium: Assume similar to ZAP
+        return 2000; // Default
+    }
+    
+    if (days <= 30) { // "30 jours"
+        if (tool === 'trivy') return 25000; // Trivy: ~13 scans, ~23120 vulnerabilities
+        if (tool === 'zap') return 4000; // ZAP: ~8-10 scans, ~2400-3100 vulnerabilities
+        if (tool === 'sonarqube') return 10000; // SonarQube: Unknown, assume high volume
+        if (tool === 'selenium') return 4000; // Selenium: Assume similar to ZAP
+        return 5000; // Default
+    }
+    
+    // Longer periods
+    if (tool === 'trivy') return 30000; // Trivy: Cover all possible vulnerabilities
+    if (tool === 'zap') return 6000; // ZAP: Cover extended periods
+    if (tool === 'sonarqube') return 15000; // SonarQube: Assume high volume
+    if (tool === 'selenium') return 6000; // Selenium: Assume similar to ZAP
+    return 10000; // Default
+}
+
 /**
  * Récupération de l'historique des scans par outil
  */
-function fetchScanHistory(toolName) {
-    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=1000`)
+function fetchScanHistory(toolName, days = 30) {
+    const limit = getDynamicLimit(days, toolName);
+    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&days=${days}&limit=${limit}`)
         .then(response => {
             if (!response.ok) {
                 return response.json().then(errorData => {
@@ -1390,19 +1710,40 @@ function updateScanTrendsChart(trends) {
         }
     });
 }
-
+/**
+ * Fonction utilitaire pour charger les scans avec pagination
+ */
+async function fetchLatestScansWithPagination(days, limit, offset) {
+    try {
+        const dynamicLimit = getDynamicLimit(days, 'all'); // Use 'all' for consistency
+        const response = await fetch(`${API_BASE_URL}/scans?days=${days}&limit=${dynamicLimit}&offset=${offset}`);
+        const data = await response.json();
+        if (data.status === 'success') {
+            updateLatestScansTable(data.data);
+        } else {
+            console.error('Erreur lors du chargement des scans:', data.message);
+            showNotification('Erreur lors du chargement des scans', 'error');
+        }
+    } catch (error) {
+        console.error('Erreur lors de la requête API:', error);
+        showNotification('Erreur lors du chargement des scans', 'error');
+    }
+}
 /**
  * Chargement des derniers scans pour toutes les catégories
  */
-async function loadLatestScans(limit = ITEMS_PER_PAGE, offset = 0) {
+async function loadLatestScans(days = 30) {
     try {
-        const response = await fetch(`${API_BASE_URL}/scans?limit=${limit}&offset=${offset}`);
+        const limit = getDynamicLimit(days, 'all'); // Use 'all' as a generic tool for latest scans
+        const response = await fetch(`${API_BASE_URL}/scans?days=${days}&limit=${limit}`);
         const data = await response.json();
         
         if (data.status === 'success') {
-            // Supposons que l'API retourne également le nombre total d'éléments
             const totalItems = data.total || data.data.length;
-            setupPagination('dashboard', 'latestScans', totalItems);
+            setupPagination('latest-scans', totalItems, ITEMS_PER_PAGE, (page) => {
+                const offset = (page - 1) * ITEMS_PER_PAGE;
+                fetchLatestScansWithPagination(days, ITEMS_PER_PAGE, offset);
+            });
             updateLatestScansTable(data.data);
         } else {
             console.error('Erreur lors du chargement des derniers scans:', data.message);
@@ -1918,28 +2259,32 @@ function mapSeverityToRiskCode(severity) {
 }
 
 
-async function loadZapData() {
+/**
+ * Chargement des données ZAP
+ */
+async function loadZapData(days) {
     if (zapDataLoaded) return;
     zapDataLoaded = true;
     try {
-        const latestScanId = await fetchLatestScanId('zap');
+        const latestScanId = await fetchLatestScanId('zap', days);
         if (!latestScanId) {
             console.error('Aucun scan récent ZAP');
             showNotification('Aucun scan récent ZAP', 'error');
             zapDataLoaded = false;
             return;
         }
-        // Récupérer toutes les vulnérabilités sans limit/offset
-        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&scan_id=${latestScanId}`);
+        const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&scan_id=${latestScanId}&days=${days}&limit=${getDynamicLimit(days, 'zap')}`);
         const data = await response.json();
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
-            allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts; // Stocker toutes les alertes
-            if (setupPagination('zap', 'vulnerabilities', totalItems)) {
-                // Afficher la première page (10 premières vulnérabilités)
-                const paginatedAlerts = allZapVulnerabilities.slice(0, ITEMS_PER_PAGE);
-                processZapData({ site: [{ alerts: paginatedAlerts }] }, totalItems);
-            }
+            allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts;
+            renderZapCharts(allZapVulnerabilities, days);
+            populateVulnerabilityTable('zap', allZapVulnerabilities.slice(0, ITEMS_PER_PAGE));
+            setupPagination('zap', 'vulnerabilities', totalItems, (page) => {
+                const start = (page - 1) * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                populateVulnerabilityTable('zap', allZapVulnerabilities.slice(start, end));
+            });
         } else {
             console.error('Erreur ZAP:', data.message);
             showNotification('Erreur chargement ZAP', 'error');
@@ -1951,6 +2296,37 @@ async function loadZapData() {
         zapDataLoaded = false;
     }
 }
+/**
+ * Renders ZAP charts based on vulnerabilities
+ */
+function renderZapCharts(vulnerabilities, days) {
+    const ctxDistribution = document.getElementById('zap-distribution-chart');
+    if (!ctxDistribution) {
+        console.error('Canvas element #zap-distribution-chart not found');
+        return;
+    }
+    if (window.zapDistributionChart) window.zapDistributionChart.destroy();
+    window.zapDistributionChart = new Chart(ctxDistribution, {
+        type: 'pie',
+        data: {
+            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
+            datasets: [{
+                data: [
+                    vulnerabilities.filter(v => v.riskdesc === 'High').length,
+                    vulnerabilities.filter(v => v.riskdesc === 'Medium').length,
+                    vulnerabilities.filter(v => v.riskdesc === 'Low').length,
+                    vulnerabilities.filter(v => v.riskdesc === 'Informational').length
+                ],
+                backgroundColor: ['#ff6384', '#ff9f40', '#ffcd56', '#4bc0c0']
+            }]
+        },
+        options: {
+            responsive: true,
+            title: { display: true, text: `Distribution (${days === 1 ? 'Dernier' : days + ' jours'})` }
+        }
+    });
+}
+
 
 function processZapData(data, totalItems) {
     if (!data || !data.site || !data.site[0]) {
@@ -2149,36 +2525,33 @@ function mapRiskCodeToSeverity(riskCode) {
 /**
  * Remplissage de la table des vulnérabilités (correction pour définir row correctement)
  */
-function populateVulnerabilityTable(alerts) {
-    const tableBody = document.querySelector('#zap-vulnerabilities-table tbody');
+/**
+ * Populates the vulnerability table for a given tool
+ */
+function populateVulnerabilityTable(tool, vulnerabilities) {
+    const tableBody = document.querySelector(`#${tool}-vulnerabilities-table tbody`);
     if (!tableBody) {
-        console.warn('Corps de la table #zap-vulnerabilities-table non trouvé');
+        console.warn(`Table body #${tool}-vulnerabilities-table tbody not found`);
         return;
     }
     tableBody.innerHTML = '';
-    if (!alerts || alerts.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
+    if (!vulnerabilities || vulnerabilities.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7">Aucune vulnérabilité</td></tr>';
         return;
     }
-    alerts.forEach((alert, index) => {
-        const row = document.createElement('tr'); // Définir row avant utilisation
-        const severityLevel = alert.riskdesc?.toLowerCase() || "medium";
-        row.classList.add(`severity-${severityLevel}`);
+    vulnerabilities.forEach(vuln => {
+        const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${alert.alert || 'N/A'}</td>
-            <td><span class="badge severity-${severityLevel}">${alert.riskdesc || 'Medium'}</span></td>
-            <td>${alert.instances[0]?.uri || 'N/A'}</td>
-            <td>${alert.category || 'N/A'}</td>
-            <td>${alert.status || 'N/A'}</td>
-            <td>
-                <button class="btn btn-sm btn-info" data-alert-index="${index}">
-                    <i class="fas fa-eye"></i>
-                </button>
-            </td>
+            <td>${vuln.title || 'N/A'}</td>
+            <td>${vuln.severity || 'N/A'}</td>
+            <td>${vuln.location || 'N/A'}</td>
+            <td>${vuln.id || 'N/A'}</td>
+            <td>${vuln.date || 'N/A'}</td>
+            <td>${vuln.status || 'N/A'}</td>
+            <td><button class="btn">Actions</button></td>
         `;
         tableBody.appendChild(row);
     });
-    initializeEventHandlers(alerts);
 }
 function initializeEventHandlers(alerts) {
     const detailButtons = document.querySelectorAll('#zap-vulnerabilities-table-body .btn-info');
