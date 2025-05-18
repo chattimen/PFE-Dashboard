@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialiser les contrôles globaux
     initGlobalControls();
 });
-
+dfsdf
 /**
  * Configuration de la navigation par onglets
  */
