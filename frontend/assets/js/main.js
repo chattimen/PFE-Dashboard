@@ -297,8 +297,8 @@ async function loadTableData(toolName, tableType) {
 
                 // Render charts only on page 1
                 if (state.currentPage === 1) {  
-                    renderVulnerabilityCharts(scan, allData);
-                    updateVulnerabilityCounts(fullList);
+                    renderVulnerabilityCharts(scan, fullList);
+                    updateVulnerabilityCounts(allZapVulnerabilities);
                 }
             } else if (toolName === 'trivy') {
                 const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
@@ -2032,6 +2032,7 @@ function mapSeverityToRiskCode(severity) {
 async function loadZapData() {
     if (zapDataLoaded) return;
     zapDataLoaded = true;
+
     try {
         const latestScanId = await fetchLatestScanId('zap');
         if (!latestScanId) {
@@ -2040,14 +2041,26 @@ async function loadZapData() {
             zapDataLoaded = false;
             return;
         }
-        // Récupérer toutes les vulnérabilités sans limit/offset
+
+        //  1. Get vulnerabilities
         const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=zap&scan_id=${latestScanId}`);
         const data = await response.json();
+
+        //  2. Fetch scan metadata for stats/chart
+        const scanResponse = await fetch(`${API_BASE_URL}/scans?tool_name=zap&limit=1`);
+        const scanData = await scanResponse.json();
+        const latestScan = scanData?.data?.[0] || {};
+
         if (data.status === 'success') {
             const totalItems = data.total || data.data.length;
-            allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts; // Stocker toutes les alertes
+
+            //  Store all vulnerabilities
+            allZapVulnerabilities = transformApiDataToZapFormat(data.data).site[0].alerts;
+            paginationState.zap.vulnerabilities.totalItems = allZapVulnerabilities.length;
+            paginationState.zap.vulnerabilities.zapScanData = latestScan;
+
+            //  Setup pagination
             if (setupPagination('zap', 'vulnerabilities', totalItems)) {
-                // Afficher la première page (10 premières vulnérabilités)
                 const paginatedAlerts = allZapVulnerabilities.slice(0, ITEMS_PER_PAGE);
                 processZapData({ site: [{ alerts: paginatedAlerts }] }, totalItems);
             }
@@ -2056,12 +2069,14 @@ async function loadZapData() {
             showNotification('Erreur chargement ZAP', 'error');
             zapDataLoaded = false;
         }
+
     } catch (error) {
         console.error('Erreur ZAP:', error);
         showNotification('Erreur chargement ZAP', 'error');
         zapDataLoaded = false;
     }
 }
+
 
 function processZapData(data, totalItems) {
     if (!data || !data.site || !data.site[0]) {
@@ -2073,7 +2088,9 @@ function processZapData(data, totalItems) {
     if (alerts.length === 0) console.warn("Aucune alerte ZAP");
     try {
         updateScanInfo(data, site);
-        updateVulnerabilityCounts(allZapVulnerabilities);
+        updateVulnerabilityCounts(allZapVulnerabilities);  // full dataset
+        renderVulnerabilityCharts(paginationState?.zap?.vulnerabilities?.zapScanData || {}, allZapVulnerabilities);
+
         const scan = paginationState?.zap?.vulnerabilities?.zapScanData;
         if (scan) {
             renderVulnerabilityCharts(scan, allZapVulnerabilities);
@@ -2122,33 +2139,48 @@ function updateScanInfo(data, site) {
 }
 
 function updateVulnerabilityCounts(alerts) {
-    const severityCounts = {
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        info: 0
-    };
-    
+    let critical = 0, high = 0, medium = 0, low = 0;
+
     alerts.forEach(alert => {
-        const riskCode = parseInt(alert.riskcode);
-        
-        if (riskCode === 3) severityCounts.critical++;
-        else if (riskCode === 2) severityCounts.high++;
-        else if (riskCode === 1) severityCounts.medium++;
-        else if (riskCode === 0) severityCounts.low++;
+        const severity = (alert.severity || '').toLowerCase();
+
+        switch (severity) {
+            case 'critical':
+                critical++;
+                break;
+            case 'high':
+                high++;
+                break;
+            case 'medium':
+                medium++;
+                break;
+            case 'low':
+                low++;
+                break;
+            default:
+                // Optionally treat unknown as "low"
+                low++;
+        }
     });
-    
-    const updateElement = (id, value) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    };
-    
-    updateElement('zap-critical-count', severityCounts.critical);
-    updateElement('zap-high-count', severityCounts.high);
-    updateElement('zap-medium-count', severityCounts.medium);
-    updateElement('zap-low-count', severityCounts.low + severityCounts.info);
+
+    const total = critical + high + medium + low;
+
+    const elCritical = document.getElementById('zap-critical-count');
+    if (elCritical) elCritical.textContent = critical;
+
+    const elHigh = document.getElementById('zap-high-count');
+    if (elHigh) elHigh.textContent = high;
+
+    const elMedium = document.getElementById('zap-medium-count');
+    if (elMedium) elMedium.textContent = medium;
+
+    const elLow = document.getElementById('zap-low-count');
+    if (elLow) elLow.textContent = low;
+
+    const elTotal = document.getElementById('zap-total-count');
+    if (elTotal) elTotal.textContent = total;
 }
+
 
 let zapSeverityChart = null;
 let zapCategoryChart = null;
