@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialiser les contrôles globaux
     initGlobalControls();
 });
-dfsdf
+
 /**
  * Configuration de la navigation par onglets
  */
@@ -254,53 +254,64 @@ function setupPagination(tableId, totalItems, limit, callback) {
     };
     paginationContainer.appendChild(nextButton);
 }
+
+
+async function fetchLatestZapScan() {
+    const response = await fetch(`${API_BASE_URL}/scans?tool_name=zap&limit=1`);
+    const data = await response.json();
+    if (data.status === 'success' && data.data && data.data.length > 0) {
+        return data.data[0];
+    }
+    return {
+        critical_severity_count: 0,
+        high_severity_count: 0,
+        medium_severity_count: 0,
+        low_severity_count: 0,
+        total_issues: 0
+    };
+}
+
+
 /**
  * Chargement des données pour une table spécifique
  */
 async function loadTableData(toolName, tableType) {
     const state = paginationState[toolName][tableType];
-    let allHistory;
-
+    let allHistory; // Déplacé en haut pour être dans le scope
+    
     try {
         if (tableType === 'vulnerabilities') {
             if (!state.totalItems) {
                 state.totalItems = await fetchVulnerabilities(toolName);
                 state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
-                console.log(`Total vulnerabilities for ${toolName}: ${state.totalItems}, pages: ${state.totalPages}`);
             }
             let paginatedData;
-            const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, state.totalItems);
             if (toolName === 'zap') {
-                paginatedData = allZapVulnerabilities.slice(startIndex, endIndex) || [];
-                // Normalize ZAP data with Trivy-like fields
-                processZapData({
-                    site: [{
-                        alerts: paginatedData.map((vuln, index) => ({
-                            id: vuln.id,
-                            vulnerability_id: vuln.vulnerability_id,
-                            title: vuln.title || 'N/A',
-                            severity: vuln.severity?.toLowerCase() || 'medium',
-                            category: vuln.category || 'security',
-                            status: vuln.status || 'open',
-                            description: vuln.description || 'Aucune description disponible',
-                            remediation: vuln.remediation || 'Aucune recommandation disponible',
-                            location: vuln.location || 'N/A',
-                            tool_name: vuln.tool_name || 'zap',
-                            last_detected: vuln.last_detected,
-                            instances: [{ uri: vuln.location }]
-                        }))
-                        
-                    }]
-                }, state.totalItems);
-                             
+                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+                const endIndex = startIndex + ITEMS_PER_PAGE;
+                const scan = paginationState.zap.vulnerabilities.zapScanData || {};
+                const allData = allZapVulnerabilities || [];
+                const fullList = allZapVulnerabilities || [];
+                const pageData = allData.slice(startIndex, endIndex) || [];
+                processZapData({ site: [{ alerts: pageData }] }, state.totalItems);
+
+                // Render charts only on page 1
+                if (state.currentPage === 1) {  
+                    renderVulnerabilityCharts(scan, allData);
+                    updateVulnerabilityCounts(fullList);
+                }
             } else if (toolName === 'trivy') {
+                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+                const endIndex = startIndex + ITEMS_PER_PAGE;
                 paginatedData = allTrivyVulnerabilities.slice(startIndex, endIndex) || [];
-                console.log(`Paginated Trivy data (page ${state.currentPage}, items ${startIndex}-${endIndex}):`, paginatedData.slice(0, 5));
+                console.log(`Paginated Trivy data (page ${state.currentPage}):`, paginatedData);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
+
             } else if (toolName === 'sonarqube') {
+                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+                const endIndex = startIndex + ITEMS_PER_PAGE;
                 paginatedData = allSonarQubeVulnerabilities.slice(startIndex, endIndex) || [];
-                console.log(`Paginated SonarQube data (page ${startIndex}-${endIndex}):`, paginatedData.slice(0, 5));
+                console.log(`Paginated SonarQube data (page ${state.currentPage}):`, paginatedData);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
             }
         } else if (tableType === 'history') {
@@ -326,7 +337,7 @@ async function loadTableData(toolName, tableType) {
         if (pageInfo && tableType === 'history') {
             pageInfo.textContent = `Tous les scans (${allHistory ? allHistory.length : 0} entrées)`;
         } else if (pageInfo) {
-            pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages} (${state.totalItems} entrées)`;
+            pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
         }
         const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
         const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
@@ -348,7 +359,7 @@ async function loadTableData(toolName, tableType) {
                 };
                 prevButton.disabled = state.currentPage <= 1;
                 nextButton.disabled = state.currentPage >= state.totalPages;
-                console.log(`Boutons mis à jour: ${toolName}-${tableType} Précédent=${prevButton.disabled}, Suivant=${nextButton.disabled}`);
+                console.log(`Boutons mis à jour: Précédent=${prevButton.disabled}, Suivant=${nextButton.disabled}`);
             }
         } else {
             console.warn(`Pagination buttons not found for ${toolName}-${tableType}`);
@@ -660,11 +671,13 @@ async function initZapPage() {
     try {
         await loadTableData('zap', 'vulnerabilities');
         await loadTableData('zap', 'history');
+        await loadZapStats();  // 👈 ADD THIS LINE
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page ZAP:', error);
         showNotification('Erreur lors de l\'initialisation de ZAP', 'error');
     }
 }
+
 /**
  * Initialisation de la page Selenium
  */
@@ -767,6 +780,92 @@ async function loadSonarQubeIssueStats() {
     }
 }
 
+async function loadZapStats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/scans?tool_name=zap&limit=1`);
+        const data = await response.json();
+
+        if (data.status !== 'success' || !data.data || data.data.length === 0) {
+            console.warn('Aucune donnée de scan ZAP disponible');
+            return;
+        }
+
+        const scan = data.data[0];
+
+        const critical = scan.critical_severity_count || 0;
+        const high = scan.high_severity_count || 0;
+        const medium = scan.medium_severity_count || 0;
+        const low = scan.low_severity_count || 0;
+        const total = scan.total_issues || (critical + high + medium + low);
+
+        // Set text content
+       const elCritical = document.getElementById('zap-critical-count');
+        if (elCritical) elCritical.textContent = critical;
+
+        const elHigh = document.getElementById('zap-high-count');
+        if (elHigh) elHigh.textContent = high;
+
+        const elMedium = document.getElementById('zap-medium-count');
+        if (elMedium) elMedium.textContent = medium;
+
+        const elLow = document.getElementById('zap-low-count');
+        if (elLow) elLow.textContent = low;
+
+        const elTotal = document.getElementById('zap-total-count');
+        if (elTotal) elTotal.textContent = total;
+
+
+        // Update pie chart if you have one
+        if (document.getElementById('zap-severity-chart')) {
+            updateZapSeverityChart(critical, high, medium, low);
+        }
+
+    } catch (error) {
+        console.error('Erreur lors du chargement des stats ZAP:', error);
+    }
+}
+
+function updateZapSeverityChart(critical, high, medium, low) {
+    const canvas = document.getElementById('zap-severity-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Destroy existing chart if it exists
+    if (window.zapSeverityChart instanceof Chart) {
+        window.zapSeverityChart.destroy();
+    }
+
+    // Create new chart and store reference
+    window.zapSeverityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
+            datasets: [{
+                data: [critical, high, medium, low],
+                backgroundColor: ['#d81b60', '#e65100', '#ffc107', '#2196f3'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: darkMode ? '#ffffff' : '#000000'
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Répartition des vulnérabilités ZAP',
+                    color: darkMode ? '#ffffff' : '#000000'
+                }
+            }
+        }
+    });
+}
+
 
 /**
  * Load scan history for a specific tool (used by all tools: Trivy, SonarQube, ZAP, Selenium)
@@ -804,11 +903,9 @@ async function loadToolScanHistory(toolName) {
 /**
  * Récupération des vulnérabilités
  */
-async function fetchVulnerabilities(toolName) {
-    const CHUNK_SIZE = 500; // Reasonable chunk size for API requests
-    let offset = 0;
-    let allVulnerabilities = [];
 
+async function fetchVulnerabilities(toolName) {
+    let text = '';
     try {
         const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=5000`);
         text = await response.text();
@@ -845,7 +942,7 @@ async function fetchVulnerabilities(toolName) {
     } catch (error) {
         console.error(`Erreur API vulnérabilités ${toolName}:`, error.message, 'Raw response:', text);
         showNotification(`Erreur chargement vulnérabilités ${toolName}: JSON invalide`, 'error');
-        return allVulnerabilities.length; // Return partial count if error occurs
+        return 0;
     }
 }
 /**
@@ -874,7 +971,7 @@ function updateVulnerabilitiesTable(toolName, vulnerabilities, totalCount) {
             <td>${formatDate(vuln.last_detected)}</td>
             <td><span class="badge status-${vuln.status}">${formatStatus(vuln.status)}</span></td>
             <td>
-                <button class="btn btn-sm btn-info view-zap-details" data-vuln='${JSON.stringify(vuln)}'>   
+                <button class="btn btn-sm btn-info" onclick="viewVulnerabilityDetails(${vuln.id})">
                     <i class="fas fa-info-circle"></i>
                 </button>
                 <button class="btn btn-sm btn-primary" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">
@@ -882,15 +979,7 @@ function updateVulnerabilitiesTable(toolName, vulnerabilities, totalCount) {
                 </button>
             </td>
         `;
-        if (toolName === 'zap') {
-            document.querySelectorAll('.view-zap-details').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const vuln = JSON.parse(btn.getAttribute('data-vuln'));
-                    showVulnerabilityModal(vuln);
-                });
-            });
-        }
-        
+        tableBody.appendChild(row);
     });
     const countElement = document.getElementById(`${toolName}-vulnerability-count`);
     if (countElement) countElement.textContent = totalCount; // Utiliser le compte total
@@ -978,7 +1067,7 @@ function showVulnerabilityModal(vuln) {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>${vuln.title || vuln.alert || vuln.name || 'Sans titre'}</h2>
+                <h2>${vuln.title}</h2>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
@@ -992,25 +1081,17 @@ function showVulnerabilityModal(vuln) {
                     <p><strong>Détectée:</strong> ${formatDate(vuln.first_detected)}</p>
                     <p><strong>Dernière détection:</strong> ${formatDate(vuln.last_detected)}</p>
                     
-                    <h2>${vuln.title || 'Sans titre'}</h2>
-                    <p><strong>Emplacement:</strong> ${vuln.location || 'N/A'}</p>
-                    <p><strong>Catégorie:</strong> ${vuln.category || 'N/A'}</p>
-                    <p><strong>Description:</strong></p>
+                    <h3>Description</h3>
                     <div class="description-box">
                         ${vuln.description || 'Aucune description disponible'}
                     </div>
-                    <p><strong>Recommandation:</strong></p>
+                    
+                    <h3>Recommandation</h3>
                     <div class="remediation-box">
                         ${vuln.remediation || 'Aucune recommandation disponible'}
                     </div>
-                    <h3>Instances</h3>
-                    <div class="instances-box">
-                        ${vuln.instances?.length > 0
-                            ? vuln.instances.map(inst => `<div>${inst.uri}</div>`).join('')
-                            : 'Aucune instance disponible'}
-                    </div>
-
-                                    
+                </div>
+                
                 <div class="modal-actions">
                     <button class="btn btn-success" onclick="updateVulnerabilityStatus(${vuln.id}, 'fixed')">Marquer comme corrigé</button>
                     <button class="btn btn-warning" onclick="updateVulnerabilityStatus(${vuln.id}, 'false_positive')">Faux positif</button>
@@ -1982,38 +2063,29 @@ async function loadZapData() {
     }
 }
 
-/**
- * Traitement des données ZAP
- */
 function processZapData(data, totalItems) {
-    console.log('Processing ZAP data:', data);
+    if (!data || !data.site || !data.site[0]) {
+        console.error("Format données ZAP invalide");
+        return;
+    }
+    const site = data.site[0];
+    const alerts = site.alerts || [];
+    if (alerts.length === 0) console.warn("Aucune alerte ZAP");
     try {
-        // Check if data and site exist
-        if (!data || !data.site || !Array.isArray(data.site)) {
-            console.error('Invalid ZAP data structure:', data);
-            showNotification('Erreur: Structure de données ZAP invalide', 'error');
-            return;
+        updateScanInfo(data, site);
+        updateVulnerabilityCounts(allZapVulnerabilities);
+        const scan = paginationState?.zap?.vulnerabilities?.zapScanData;
+        if (scan) {
+            renderVulnerabilityCharts(scan, allZapVulnerabilities);
         }
 
-        const alerts = data.site[0]?.alerts || [];
-        console.log('ZAP alerts:', alerts.slice(0, 5), 'Total items:', totalItems); // Log first 5 for brevity
-
-        if (!alerts.length) {
-            console.warn('No ZAP alerts found');
-            showNotification('Aucune vulnérabilité ZAP détectée', 'info');
-        }
-
-        // Update total vulnerabilities count
-        const totalVulnerabilitiesElement = document.getElementById('zap-total-vulnerabilities');
-        if (totalVulnerabilitiesElement) {
-            totalVulnerabilitiesElement.textContent = totalItems || alerts.length;
-        }
-
-        // Populate vulnerabilities table
-        populateVulnerabilityTable(alerts, totalItems);
+        populateVulnerabilityTable(alerts);
+        initializeEventHandlers(alerts);
+        const countElement = document.getElementById('zap-vulnerability-count');
+        if (countElement) countElement.textContent = totalItems; // Mettre à jour avec le compte total
     } catch (error) {
         console.error('Erreur traitement ZAP:', error);
-        showNotification('Erreur traitement données ZAP', 'error');
+        showNotification('Erreur traitement ZAP', 'error');
     }
 }
 
@@ -2081,48 +2153,37 @@ function updateVulnerabilityCounts(alerts) {
 let zapSeverityChart = null;
 let zapCategoryChart = null;
 
-function renderVulnerabilityCharts(alerts) {
+function renderVulnerabilityCharts(scan, alerts = []) {
     const severityChart = document.getElementById('zap-severity-chart');
     const categoryChart = document.getElementById('zap-category-chart');
-    
-    if (zapSeverityChart) {
-        zapSeverityChart.destroy();
+
+    if (window.zapSeverityChart instanceof Chart) {
+        window.zapSeverityChart.destroy();
     }
-    
-    if (zapCategoryChart) {
-        zapCategoryChart.destroy();
+
+    if (window.zapCategoryChart instanceof Chart) {
+        window.zapCategoryChart.destroy();
     }
-    
+
     if (!severityChart || !categoryChart) {
         console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
         return;
     }
-    
-    const severityCounts = [0, 0, 0, 0];
-    const categoryCounts = {};
-    
-    alerts.forEach(alert => {
-        const riskCode = parseInt(alert.riskcode);
-    
-        if (riskCode === 3) severityCounts[0]++;
-        else if (riskCode === 2) severityCounts[1]++;
-        else if (riskCode === 1) severityCounts[2]++;
-        else if (riskCode === 0) severityCounts[3]++;
-    
-        if (alert.wascid && alert.wascid !== "-1") {
-            const category = `WASC-${alert.wascid}`;
-            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-        }
-    });
-    
+
+    // ✅ Use real data from scan stats
+    const critical = scan.critical_severity_count || 0;
+    const high = scan.high_severity_count || 0;
+    const medium = scan.medium_severity_count || 0;
+    const low = scan.low_severity_count || 0;
+
     try {
         const severityCtx = severityChart.getContext('2d');
-        zapSeverityChart = new Chart(severityCtx, {
+        window.zapSeverityChart = new Chart(severityCtx, {
             type: 'pie',
             data: {
                 labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
                 datasets: [{
-                    data: severityCounts,
+                    data: [critical, high, medium, low],
                     backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
                 }]
             },
@@ -2136,19 +2197,26 @@ function renderVulnerabilityCharts(alerts) {
                 }
             }
         });
-    
-        const categoryLabels = Object.keys(categoryCounts);
-        const categoryData = categoryLabels.map(cat => categoryCounts[cat]);
-    
+
+        // 🔄 Category chart (optional — from alerts list)
+        const typeCounts = {};
+        alerts.forEach(alert => {
+            const title = alert.title || alert.alert || 'Unknown';
+            typeCounts[title] = (typeCounts[title] || 0) + 1;
+        });
+
+        const typeLabels = Object.keys(typeCounts).slice(0, 10); // Top 10
+        const typeData = typeLabels.map(t => typeCounts[t]);
+
         const categoryCtx = categoryChart.getContext('2d');
-        zapCategoryChart = new Chart(categoryCtx, {
+        window.zapCategoryChart = new Chart(categoryCtx, {
             type: 'bar',
             data: {
-                labels: categoryLabels,
+                labels: typeLabels,
                 datasets: [{
-                    label: 'Nombre de vulnérabilités',
-                    data: categoryData,
-                    backgroundColor: '#4e73df'
+                    label: 'Types de vulnérabilités (Top 10)',
+                    data: typeData,
+                    backgroundColor: '#36a2eb'
                 }]
             },
             options: {
@@ -2169,11 +2237,12 @@ function renderVulnerabilityCharts(alerts) {
                 }
             }
         });
-    
+
     } catch (e) {
         console.error("Erreur lors de la création des graphiques ZAP:", e);
     }
 }
+
 /**
  * Fonction pour mapper le code de risque en sévérité
  */
@@ -2190,9 +2259,9 @@ function mapRiskCodeToSeverity(riskCode) {
 }
 
 /**
- * Remplissage de la table des vulnérabilités
+ * Remplissage de la table des vulnérabilités (correction pour définir row correctement)
  */
-function populateVulnerabilityTable(alerts, totalItems) {
+function populateVulnerabilityTable(alerts) {
     const tableBody = document.querySelector('#zap-vulnerabilities-table tbody');
     if (!tableBody) {
         console.warn('Corps de la table #zap-vulnerabilities-table non trouvé');
@@ -2200,19 +2269,19 @@ function populateVulnerabilityTable(alerts, totalItems) {
     }
     tableBody.innerHTML = '';
     if (!alerts || alerts.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
         return;
     }
     alerts.forEach((alert, index) => {
-        const row = document.createElement('tr');
+        const row = document.createElement('tr'); // Définir row avant utilisation
         const severityLevel = alert.riskdesc?.toLowerCase() || "medium";
         row.classList.add(`severity-${severityLevel}`);
         row.innerHTML = `
             <td>${alert.alert || 'N/A'}</td>
             <td><span class="badge severity-${severityLevel}">${alert.riskdesc || 'Medium'}</span></td>
-            <td>${alert.uri || (alert.instances && alert.instances[0]?.uri) || 'N/A'}</td>
-            <td>${alert.category || 'security'}</td>
-            <td>${alert.status || 'open'}</td>
+            <td>${alert.instances[0]?.uri || 'N/A'}</td>
+            <td>${alert.category || 'N/A'}</td>
+            <td>${alert.status || 'N/A'}</td>
             <td>
                 <button class="btn btn-sm btn-info" data-alert-index="${index}">
                     <i class="fas fa-eye"></i>
@@ -2222,13 +2291,7 @@ function populateVulnerabilityTable(alerts, totalItems) {
         tableBody.appendChild(row);
     });
     initializeEventHandlers(alerts);
-    // Update total count display
-    const totalElement = document.getElementById('zap-total-vulnerabilities');
-    if (totalElement) {
-        totalElement.textContent = totalItems;
-    }
 }
-
 function initializeEventHandlers(alerts) {
     const detailButtons = document.querySelectorAll('#zap-vulnerabilities-table-body .btn-info');
     detailButtons.forEach(button => {
