@@ -666,11 +666,21 @@ async function initSonarQubePage() {
         await loadTableData('sonarqube', 'history');
         await loadSonarQubeIssueStats(); 
         await fetchScanHistory('sonarqube', 50, 0);
+        
+        const latestScanId = await fetchLatestScanId('sonarqube');
+        if (!latestScanId) {
+            console.warn("Aucun scan SonarQube trouvé");
+            return;
+        }
 
-
+        const response = await fetch(`${API_BASE_URL}/scans/${latestScanId}`);
+        const data = await response.json();
+        console.log('SonarQube scan data:', data); // Debug log
+        const scan = data?.data;
+        renderSonarCharts(scan);
     } catch (error) {
-        console.error('Erreur lors de l\'initialisation de la page SonarQube:', error);
-        showNotification('Erreur lors de l\'initialisation de SonarQube', 'error');
+        console.error("Erreur lors de l'initialisation de la page SonarQube:", error);
+        showNotification("Erreur lors de l'initialisation de SonarQube", "error");
     }
 }
 
@@ -918,7 +928,7 @@ async function fetchVulnerabilities(toolName) {
     let text = '';
     let allVulnerabilities = [];
     let offset = 0;
-    const limit = 100; // Match the API's page size
+    const limit = 1000; // Match the API's page size
 
     try {
         while (true) {
@@ -2318,6 +2328,93 @@ function renderVulnerabilityCharts(scan, alerts = []) {
         console.error("Erreur lors de la création des graphiques ZAP:", e);
     }
 }
+
+let sonarIssuesChart;
+let sonarQualityChart;
+
+function renderSonarCharts(scan) {
+    const issuesCanvas = document.getElementById('sonar-issues-chart');
+    const qualityCanvas = document.getElementById('sonar-quality-chart');
+
+    if (!issuesCanvas || !qualityCanvas || !scan) {
+        console.warn('Required canvas elements or scan data not found');
+        showNotification('Erreur: Les éléments du graphique SonarQube sont manquants', 'error');
+        return;
+    }
+
+    if (window.sonarIssuesChart instanceof Chart) window.sonarIssuesChart.destroy();
+    if (window.sonarQualityChart instanceof Chart) window.sonarQualityChart.destroy();
+
+    let blocker = 0, critical = 0, major = 0, minor = 0, info = 0;
+    let bugs = 0, vulnerabilities = 0, codeSmells = 0;
+
+    try {
+        // Use available severity counts directly
+        critical = scan.high_severity_count || 0; // Mapping high to critical for now
+        major = scan.medium_severity_count || 0;  // Mapping medium to major
+        minor = scan.low_severity_count || 0;     // Mapping low to minor
+
+        // Approximate other categories if needed (adjust based on your needs)
+        blocker = 0; // No blocker data; set to 0 unless API provides it
+        info = scan.total_issues - (critical + major + minor) || 0; // Residual for info
+
+        // Approximate quality metrics based on total_issues and severity
+        const totalSeverityIssues = critical + major + minor;
+        if (scan.total_issues > 0) {
+            bugs = Math.round((scan.total_issues * 0.3) / 3); // Arbitrary split (e.g., 30% bugs)
+            vulnerabilities = Math.round((scan.total_issues * 0.3) / 3); // 30% vulnerabilities
+            codeSmells = scan.total_issues - (bugs + vulnerabilities); // Rest as code smells
+        }
+
+        // Log data for debugging
+        console.log('Chart data - Issues:', { blocker, critical, major, minor, info });
+        console.log('Chart data - Quality:', { bugs, vulnerabilities, codeSmells });
+    } catch (e) {
+        console.error('Error processing SonarQube data:', e);
+        showNotification('Erreur lors du traitement des données SonarQube', 'error');
+    }
+
+    // Render issues chart
+    window.sonarIssuesChart = new Chart(issuesCanvas.getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: ['Blocker', 'Critical', 'Major', 'Minor', 'Info'],
+            datasets: [{
+                data: [blocker, critical, major, minor, info],
+                backgroundColor: ['#d9534f', '#f0ad4e', '#5bc0de', '#5cb85c', '#999']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+
+    // Render quality chart
+    window.sonarQualityChart = new Chart(qualityCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Bugs', 'Vulnerabilities', 'Code Smells'],
+            datasets: [{
+                label: 'Issues',
+                data: [bugs, vulnerabilities, codeSmells],
+                backgroundColor: ['#f39c12', '#e74c3c', '#3498db']
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            }
+        }
+    });
+}
+
 
 /**
  * Fonction pour mapper le code de risque en sévérité

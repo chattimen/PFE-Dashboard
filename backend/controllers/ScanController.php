@@ -2,7 +2,7 @@
 /**
  * Contrôleur pour gérer les scans
  */
-ini_set('memory_limit', '256M');
+ini_set('memory_limit', '516M');
 class ScanController {
     private $scanModel;
     
