@@ -406,7 +406,7 @@ body.dark-mode .pagination span {
 }
 
 .severity-medium {
-    background-color: var(--severity-medium);
+    background-color: #ffbf3e; color: #000;
 }
 
 .severity-low {
