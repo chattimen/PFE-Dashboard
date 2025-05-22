@@ -22,6 +22,7 @@ let allSeleniumVulnerabilities = [];
 // Configuration de la pagination
 const ITEMS_PER_PAGE = 10;
 const paginationState = {
+    'dashboard': { 'history': { currentPage: 1, totalItems: 0, totalPages: 1 } },
     'zap': { 'vulnerabilities': { currentPage: 1, totalItems: 0, totalPages: 1 }, 'history': { currentPage: 1, totalItems: 0, totalPages: 1 } },
     'trivy': { 'vulnerabilities': { currentPage: 1, totalItems: 0, totalPages: 1 }, 'history': { currentPage: 1, totalItems: 0, totalPages: 1 } },
     'sonarqube': { 'vulnerabilities': { currentPage: 1, totalItems: 0, totalPages: 1 }, 'history': { currentPage: 1, totalItems: 0, totalPages: 1 } },
@@ -325,37 +326,30 @@ async function loadTableData(toolName, tableType) {
                 paginatedData = allSonarQubeVulnerabilities.slice(startIndex, endIndex) || [];
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
             }
-        } else if (tableType === 'history') {
-            if (!state.totalItems) {
-                state.totalItems = await fetchScanHistory(toolName);
-                state.totalPages = 1; // Disable pagination
-            }
-            let historySource;
-            if (toolName === 'zap') {
-                historySource = allZapHistory;
-            } else if (toolName === 'trivy') {
-                historySource = allTrivyHistory;
-            } else if (toolName === 'sonarqube') {
-                historySource = allSonarQubeHistory;
-            } else if (toolName === 'selenium') {
-                historySource = allSeleniumHistory;
-            }
-            allHistory = historySource ? historySource : [];
-            updateHistoryTable(toolName, allHistory, allHistory.length);
-        }
+        }else if (tableType === 'history') {
+            const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+            const { scans, total } = await fetchScanHistory(toolName, ITEMS_PER_PAGE, offset);
 
-        const pageInfo = document.getElementById(`${toolName}-${tableType}-page-Info`);
-        if (pageInfo && tableType === 'history') {
-            pageInfo.textContent = `Tous les scans (${allHistory ? allHistory.length : 0} entrées)`;
-        } else if (pageInfo) {
-            pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
-        }
-        const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
-        const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
-        if (prevButton && nextButton) {
-            prevButton.style.display = tableType === 'history' ? 'none' : 'inline-block';
-            nextButton.style.display = tableType === 'history' ? 'none' : 'inline-block';
-            if (tableType !== 'history') {
+            updateScanHistoryTable(scans, toolName);
+
+            state.totalItems = total;
+            state.totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+
+            const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
+            const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
+            const pageInfo = document.getElementById(`${toolName}-${tableType}-page-info`);
+
+            if (pageInfo) {
+                pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
+            }
+
+            if (prevButton && nextButton) {
+                prevButton.style.display = 'inline-block';
+                nextButton.style.display = 'inline-block';
+
+                prevButton.disabled = state.currentPage <= 1;
+                nextButton.disabled = state.currentPage >= state.totalPages;
+
                 prevButton.onclick = () => {
                     if (state.currentPage > 1) {
                         state.currentPage--;
@@ -368,8 +362,6 @@ async function loadTableData(toolName, tableType) {
                         loadTableData(toolName, tableType);
                     }
                 };
-                prevButton.disabled = state.currentPage <= 1;
-                nextButton.disabled = state.currentPage >= state.totalPages;
             }
         } else {
             console.warn(`Pagination buttons not found for ${toolName}-${tableType}`);
@@ -720,18 +712,20 @@ async function fetchScanHistory(toolName, limit = 50, offset = 0) {
         const data = await response.json();
 
         if (data.status === 'success') {
-            updateScanHistoryTable(data.data, toolName);
-            setupPagination(`${toolName}-history`, data.total, limit, (page) => {
-                const newOffset = (page - 1) * limit;
-                fetchScanHistory(toolName, limit, newOffset);
-            });
+            return {
+                scans: data.data || [],
+                total: data.total || 0
+            };
         } else {
             console.error(`Erreur API pour l'historique ${toolName}:`, data.message);
+            return { scans: [], total: 0 };
         }
     } catch (error) {
         console.error(`Erreur réseau/API pour l'historique ${toolName}:`, error);
+        return { scans: [], total: 0 };
     }
 }
+
 
 /**
  * Load vulnerabilities for a specific tool (used by all tools: Trivy, SonarQube, ZAP, Selenium)
@@ -1234,34 +1228,6 @@ async function fetchLatestScanId(toolName) {
     }
 }
 
-/**
- * Récupération de l'historique des scans par outil
- */
-function fetchScanHistory(toolName) {
-    fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=1000`)
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(errorData => {
-                    throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${errorData.message || response.statusText}`);
-                }).catch(() => {
-                    throw new Error(`Erreur HTTP! Statut: ${response.status}, Message: ${response.statusText}`);
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                updateScanHistoryTable(data.data, toolName);
-            } else {
-                console.error(`Erreur logique API lors du chargement de l'historique des scans ${toolName}:`, data.message);
-                showNotification(`L'API a signalé une erreur pour l'historique ${toolName}: ${data.message}`, 'warning');
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors de la requête API ou du traitement de la réponse:', error);
-            showNotification(`Erreur lors du chargement de l'historique des scans ${toolName}: ${error.message || error}`, 'error');
-        });
-}
 function updateScanHistoryTable(scans, toolName) {
         
     const tableId = `${toolName}-history-table`;
@@ -1533,25 +1499,77 @@ function updateScanTrendsChart(trends) {
 /**
  * Chargement des derniers scans pour toutes les catégories
  */
-async function loadLatestScans(limit = ITEMS_PER_PAGE, offset = 0) {
+async function loadLatestScans() {
+    const state = paginationState.dashboard.history;
+    const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+
     try {
-        const response = await fetch(`${API_BASE_URL}/scans?limit=${limit}&offset=${offset}`);
+        const response = await fetch(`${API_BASE_URL}/scans?limit=${ITEMS_PER_PAGE}&offset=${offset}`);
         const data = await response.json();
-        
-        if (data.status === 'success') {
-            // Supposons que l'API retourne également le nombre total d'éléments
-            const totalItems = data.total || data.data.length;
-            setupPagination('dashboard', 'latestScans', totalItems);
-            updateLatestScansTable(data.data);
-        } else {
-            console.error('Erreur lors du chargement des derniers scans:', data.message);
-            showNotification('Erreur lors du chargement des derniers scans', 'error');
+        const scans = data.data || [];
+
+        const tableBody = document.querySelector('#latest-scans-table tbody');
+        tableBody.innerHTML = '';
+
+        if (scans.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8">Aucun scan trouvé</td></tr>';
         }
-    } catch (error) {
-        console.error('Erreur lors de la requête API:', error);
-        showNotification('Erreur lors du chargement des derniers scans', 'error');
+
+        scans.forEach(scan => {
+            const row = document.createElement('tr');
+            row.classList.add(`status-${scan.scan_status}`); 
+            row.innerHTML = `
+                <td>${formatDate(scan.scan_date)}</td>
+                <td>${scan.tool_name}</td>
+                <td>${scan.target_name}</td>
+                <td>${scan.scan_status}</td>
+                <td>${scan.total_issues}</td>
+                <td>${scan.high_severity_count}</td>
+                <td>${scan.medium_severity_count}</td>
+                <td>${scan.low_severity_count}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewScanDetails(${scan.id})">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+
+        state.totalItems = data.total || scans.length;
+        state.totalPages = Math.ceil(state.totalItems / ITEMS_PER_PAGE);
+
+        const prevButton = document.getElementById('dashboard-latestScans-prev-page');
+        const nextButton = document.getElementById('dashboard-latestScans-next-page');
+        const pageInfo = document.getElementById('dashboard-latestScans-page-info');
+
+        if (prevButton && nextButton && pageInfo) {
+            prevButton.disabled = state.currentPage === 1;
+            nextButton.disabled = state.currentPage === state.totalPages;
+
+            prevButton.onclick = () => {
+                if (state.currentPage > 1) {
+                    state.currentPage--;
+                    loadLatestScans();
+                }
+            };
+
+            nextButton.onclick = () => {
+                if (state.currentPage < state.totalPages) {
+                    state.currentPage++;
+                    loadLatestScans();
+                }
+            };
+
+            pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
+        }
+
+    } catch (err) {
+        console.error('Erreur chargement latest scans:', err);
     }
 }
+
 
 /**
  * Mise à jour du tableau des derniers scans
