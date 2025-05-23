@@ -213,48 +213,51 @@ function elementExists(id) {
 /**
  * Gestion de la pagination
  */
-function setupPagination(tableId, totalItems, limit, callback) {
-    const paginationContainer = document.querySelector(`#${tableId}-pagination`);
+function setupPagination(toolName, tableType, totalItems, callback) {
+    const paginationContainer = document.querySelector(`#${toolName}-${tableType}-pagination`);
     if (!paginationContainer) return;
-    const pageCount = Math.ceil(totalItems / limit);
-    paginationContainer.innerHTML = '';
-    if (pageCount <= 1) return;
 
+    const state = paginationState[toolName]?.[tableType];
+    if (!state) return;
+
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    state.totalPages = totalPages;
+
+    paginationContainer.innerHTML = '';
+
+    // Prev button
     const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous';
-    prevButton.className = 'btn btn-sm btn-secondary mr-2';
-    prevButton.disabled = currentPage === 1;
+    prevButton.textContent = 'Précédent';
+    prevButton.className = 'btn btn-secondary btn-sm';
+    prevButton.disabled = state.currentPage <= 1;
     prevButton.onclick = () => {
-        if (currentPage > 1) {
-            currentPage--;
-            callback(currentPage);
+        if (state.currentPage > 1) {
+            state.currentPage--;
+            callback();
         }
     };
     paginationContainer.appendChild(prevButton);
 
-    for (let i = 1; i <= pageCount; i++) {
-        const pageButton = document.createElement('button');
-        pageButton.textContent = i;
-        pageButton.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-secondary'} mr-1`;
-        pageButton.onclick = () => {
-            currentPage = i;
-            callback(currentPage);
-        };
-        paginationContainer.appendChild(pageButton);
-    }
+    // Page info
+    const pageInfo = document.createElement('span');
+    pageInfo.textContent = ` Page ${state.currentPage} sur ${totalPages} `;
+    pageInfo.style.margin = '0 10px';
+    paginationContainer.appendChild(pageInfo);
 
+    // Next button
     const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next';
-    nextButton.className = 'btn btn-sm btn-secondary';
-    nextButton.disabled = currentPage === pageCount;
+    nextButton.textContent = 'Suivant';
+    nextButton.className = 'btn btn-secondary btn-sm';
+    nextButton.disabled = state.currentPage >= totalPages;
     nextButton.onclick = () => {
-        if (currentPage < pageCount) {
-            currentPage++;
-            callback(currentPage);
+        if (state.currentPage < totalPages) {
+            state.currentPage++;
+            callback();
         }
     };
     paginationContainer.appendChild(nextButton);
 }
+
 
 
 async function fetchLatestZapScan() {
@@ -278,13 +281,12 @@ async function fetchLatestZapScan() {
  */
 async function loadTableData(toolName, tableType) {
     const state = paginationState[toolName][tableType];
-    let allHistory;
+    let paginatedData;
 
     try {
         if (tableType === 'vulnerabilities') {
             if (!state.totalItems) {
                 if (toolName === 'zap') {
-                    // For ZAP, rely on loadZapData to set allZapVulnerabilities and totalItems
                     await loadZapData();
                     state.totalItems = allZapVulnerabilities.length;
                 } else {
@@ -293,40 +295,28 @@ async function loadTableData(toolName, tableType) {
                 state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
             }
 
-            let paginatedData;
+            const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+
             if (toolName === 'zap') {
                 const allData = allZapVulnerabilities || [];
-                const totalItems = allData.length;
-
-                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
-                const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-
-                if (startIndex >= totalItems) {
-                    console.warn("Page demandée hors des limites de allZapVulnerabilities");
-                    return;
-                }
-
                 const pageData = allData.slice(startIndex, endIndex);
-
-                if (!pageData || pageData.length === 0) {
-                    console.warn("Aucune donnée ZAP trouvée pour cette page");
-                    return;
-                }
-
                 const scan = paginationState?.zap?.vulnerabilities?.zapScanData || {};
-                processZapData({ site: [{ alerts: pageData }] }, totalItems);
+                processZapData({ site: [{ alerts: pageData }] }, allData.length);
             } else if (toolName === 'trivy') {
-                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
-                const endIndex = startIndex + ITEMS_PER_PAGE;
-                paginatedData = allTrivyVulnerabilities.slice(startIndex, endIndex) || [];
+                paginatedData = (allTrivyVulnerabilities || []).slice(startIndex, endIndex);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
             } else if (toolName === 'sonarqube') {
-                const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
-                const endIndex = startIndex + ITEMS_PER_PAGE;
-                paginatedData = allSonarQubeVulnerabilities.slice(startIndex, endIndex) || [];
+                paginatedData = (allSonarQubeVulnerabilities || []).slice(startIndex, endIndex);
+                updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
+            } else if (toolName === 'selenium') {
+                paginatedData = (allSeleniumVulnerabilities || []).slice(startIndex, endIndex);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
             }
-        }else if (tableType === 'history') {
+
+            setupPagination(toolName, tableType, state.totalItems, () => loadTableData(toolName, tableType));
+
+        } else if (tableType === 'history') {
             const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
             const { scans, total } = await fetchScanHistory(toolName, ITEMS_PER_PAGE, offset);
 
@@ -335,42 +325,44 @@ async function loadTableData(toolName, tableType) {
             state.totalItems = total;
             state.totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
-            const prevButton = document.getElementById(`${toolName}-${tableType}-prev-page`);
-            const nextButton = document.getElementById(`${toolName}-${tableType}-next-page`);
-            const pageInfo = document.getElementById(`${toolName}-${tableType}-page-info`);
-
+            const pageInfo = document.getElementById(`${toolName}-history-page-info`);
             if (pageInfo) {
                 pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
             }
 
-            if (prevButton && nextButton) {
-                prevButton.style.display = 'inline-block';
-                nextButton.style.display = 'inline-block';
+            const prevButton = document.getElementById(`${toolName}-history-prev-page`);
+            const nextButton = document.getElementById(`${toolName}-history-next-page`);
 
+            if (prevButton && nextButton) {
                 prevButton.disabled = state.currentPage <= 1;
                 nextButton.disabled = state.currentPage >= state.totalPages;
 
                 prevButton.onclick = () => {
                     if (state.currentPage > 1) {
                         state.currentPage--;
-                        loadTableData(toolName, tableType);
+                        loadTableData(toolName, 'history');
                     }
                 };
                 nextButton.onclick = () => {
                     if (state.currentPage < state.totalPages) {
                         state.currentPage++;
-                        loadTableData(toolName, tableType);
+                        loadTableData(toolName, 'history');
                     }
                 };
             }
+
+            setupPagination(toolName, tableType, state.totalItems, () => loadTableData(toolName, tableType));
+
         } else {
-            console.warn(`Pagination buttons not found for ${toolName}-${tableType}`);
+            console.warn(`Type de table inconnu: ${tableType}`);
         }
+
     } catch (error) {
         console.error(`Erreur lors du chargement des données pour ${toolName}-${tableType}:`, error);
         showNotification(`Erreur chargement ${toolName}-${tableType}`, 'error');
     }
 }
+
 /**
  * Chargement des statistiques des vulnérabilités
  */
@@ -706,25 +698,26 @@ async function initSeleniumPage() {
 /**
  * Récupération des vulnérabilités par outil
  */
-async function fetchScanHistory(toolName, limit = 50, offset = 0) {
+async function fetchScanHistory(toolName, limit = 10, offset = 0) {
     try {
         const response = await fetch(`${API_BASE_URL}/scans?tool_name=${toolName}&limit=${limit}&offset=${offset}`);
         const data = await response.json();
 
         if (data.status === 'success') {
             return {
-                scans: data.data || [],
-                total: data.total || 0
+                scans: data.data,
+                total: data.total || data.data.length
             };
         } else {
-            console.error(`Erreur API pour l'historique ${toolName}:`, data.message);
+            console.error(`Erreur API pour ${toolName} history:`, data.message);
             return { scans: [], total: 0 };
         }
     } catch (error) {
-        console.error(`Erreur réseau/API pour l'historique ${toolName}:`, error);
+        console.error(`Erreur lors de la récupération de l'historique des scans ${toolName}:`, error);
         return { scans: [], total: 0 };
     }
 }
+
 
 
 /**
