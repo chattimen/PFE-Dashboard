@@ -195,7 +195,7 @@ class ScanModel {
                     COALESCE(COUNT(s.id) FILTER (WHERE s.tool_name = 'trivy'), 0) as trivy_scans,
                     COALESCE(COUNT(s.id) FILTER (WHERE s.tool_name = 'sonarqube'), 0) as sonarqube_scans,
                     COALESCE(COUNT(s.id) FILTER (WHERE s.tool_name = 'selenium'), 0) as selenium_scans,
-                    COALESCE(COUNT(s.id) FILTER (WHERE s.tool_name = 'owasp_zap'), 0) as zap_scans
+                    COALESCE(COUNT(s.id) FILTER (WHERE s.tool_name = 'zap'), 0) as zap_scans
                 FROM 
                     dates
                 LEFT JOIN scans s ON 

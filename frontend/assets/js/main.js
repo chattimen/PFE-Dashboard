@@ -17,6 +17,8 @@ let allZapVulnerabilities = [];
 let allTrivyVulnerabilities = [];
 let allSonarQubeVulnerabilities = [];
 let allSeleniumVulnerabilities = [];
+let allDashboardScans = [];
+
 
 
 // Configuration de la pagination
@@ -115,6 +117,17 @@ function setupTabNavigation() {
             }
         });
     });
+}
+
+function getLatestScanVulnerabilities(vulnerabilities) {
+    const grouped = vulnerabilities.reduce((acc, vuln) => {
+        if (!acc[vuln.scan_id]) acc[vuln.scan_id] = [];
+        acc[vuln.scan_id].push(vuln);
+        return acc;
+    }, {});
+    
+    const latestScanId = Math.max(...Object.keys(grouped).map(Number));
+    return grouped[latestScanId] || [];
 }
 
 /**
@@ -275,12 +288,14 @@ async function fetchLatestZapScan() {
     };
 }
 
-
 /**
  * Chargement des données pour une table spécifique
  */
 async function loadTableData(toolName, tableType) {
     const state = paginationState[toolName][tableType];
+    if (!state.currentPage) {
+        state.currentPage = 1;
+    }
     let paginatedData;
 
     try {
@@ -290,7 +305,10 @@ async function loadTableData(toolName, tableType) {
                     await loadZapData();
                     state.totalItems = allZapVulnerabilities.length;
                 } else {
-                    state.totalItems = await fetchVulnerabilities(toolName);
+                    const periodSelector = document.getElementById('period-selector');
+                    const days = periodSelector ? parseInt(periodSelector.value) : 30;
+                    state.totalItems = await fetchVulnerabilities(toolName, days);
+
                 }
                 state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
             }
@@ -304,8 +322,16 @@ async function loadTableData(toolName, tableType) {
                 const scan = paginationState?.zap?.vulnerabilities?.zapScanData || {};
                 processZapData({ site: [{ alerts: pageData }] }, allData.length);
             } else if (toolName === 'trivy') {
-                paginatedData = (allTrivyVulnerabilities || []).slice(startIndex, endIndex);
-                updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
+                const allData = allTrivyVulnerabilities || [];
+                const pageData = allData.slice(startIndex, endIndex);
+
+                updateVulnerabilitiesTable(toolName, pageData, state.totalItems);
+
+                if (!window.trivyChartDrawn) {
+                    const latest = getLatestScanVulnerabilities(allData);
+                    processTrivyData(latest);
+                    window.trivyChartDrawn = true;
+                }
             } else if (toolName === 'sonarqube') {
                 paginatedData = (allSonarQubeVulnerabilities || []).slice(startIndex, endIndex);
                 updateVulnerabilitiesTable(toolName, paginatedData, state.totalItems);
@@ -317,46 +343,69 @@ async function loadTableData(toolName, tableType) {
             setupPagination(toolName, tableType, state.totalItems, () => loadTableData(toolName, tableType));
 
         } else if (tableType === 'history') {
-            const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
-            const { scans, total } = await fetchScanHistory(toolName, ITEMS_PER_PAGE, offset);
+            const state = paginationState[toolName][tableType];
 
-            updateScanHistoryTable(scans, toolName);
+            let allHistory = [];
+            if (toolName === 'trivy') allHistory = allTrivyHistory;
+            else if (toolName === 'zap') allHistory = allZapHistory;
+            else if (toolName === 'sonarqube') allHistory = allSonarQubeHistory;
+            else if (toolName === 'selenium') allHistory = allSeleniumHistory;
 
-            state.totalItems = total;
-            state.totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+            if (allHistory.length === 0) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/scans?tool_name=${toolName}`);
+                    const data = await response.json();
+                    allHistory = data.data || [];
 
-            const pageInfo = document.getElementById(`${toolName}-history-page-info`);
-            if (pageInfo) {
-                pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
+                    // Store it
+                    if (toolName === 'trivy') allTrivyHistory = allHistory;
+                    else if (toolName === 'zap') allZapHistory = allHistory;
+                    else if (toolName === 'sonarqube') allSonarQubeHistory = allHistory;
+                    else if (toolName === 'selenium') allSeleniumHistory = allHistory;
+                } catch (error) {
+                    console.error(`Erreur chargement historique ${toolName}:`, error);
+                    return;
+                }
             }
+
+            state.totalItems = allHistory.length;
+            state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
+
+            const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+            const pageData = allHistory.slice(offset, offset + ITEMS_PER_PAGE);
+
+            updateScanHistoryTable(pageData, toolName);
 
             const prevButton = document.getElementById(`${toolName}-history-prev-page`);
             const nextButton = document.getElementById(`${toolName}-history-next-page`);
+            const pageInfo = document.getElementById(`${toolName}-history-page-info`);
 
-            if (prevButton && nextButton) {
+            if (prevButton && nextButton && pageInfo) {
                 prevButton.disabled = state.currentPage <= 1;
                 nextButton.disabled = state.currentPage >= state.totalPages;
 
-                prevButton.onclick = () => {
+                const newPrev = prevButton.cloneNode(true);
+                const newNext = nextButton.cloneNode(true);
+                prevButton.parentNode.replaceChild(newPrev, prevButton);
+                nextButton.parentNode.replaceChild(newNext, nextButton);
+
+                newPrev.onclick = () => {
                     if (state.currentPage > 1) {
                         state.currentPage--;
                         loadTableData(toolName, 'history');
                     }
                 };
-                nextButton.onclick = () => {
+
+                newNext.onclick = () => {
                     if (state.currentPage < state.totalPages) {
                         state.currentPage++;
                         loadTableData(toolName, 'history');
                     }
                 };
+
+                pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
             }
-
-            setupPagination(toolName, tableType, state.totalItems, () => loadTableData(toolName, tableType));
-
-        } else {
-            console.warn(`Type de table inconnu: ${tableType}`);
         }
-
     } catch (error) {
         console.error(`Erreur lors du chargement des données pour ${toolName}-${tableType}:`, error);
         showNotification(`Erreur chargement ${toolName}-${tableType}`, 'error');
@@ -706,14 +755,14 @@ async function fetchScanHistory(toolName, limit = 10, offset = 0) {
         if (data.status === 'success') {
             return {
                 scans: data.data,
-                total: data.total || data.data.length
+                total: data.total || data.data.length // total should come from backend
             };
         } else {
-            console.error(`Erreur API pour ${toolName} history:`, data.message);
+            console.error(`Erreur API historique ${toolName}:`, data.message);
             return { scans: [], total: 0 };
         }
     } catch (error) {
-        console.error(`Erreur lors de la récupération de l'historique des scans ${toolName}:`, error);
+        console.error(`Erreur lors de la récupération de l'historique ${toolName}:`, error);
         return { scans: [], total: 0 };
     }
 }
@@ -729,7 +778,10 @@ async function loadToolVulnerabilities(toolName, scanId = null) {
         console.warn(`Table body for ${toolName} vulnerabilities not found`);
         return;
     }
-    const data = await fetchVulnerabilities(toolName, scanId);
+    const periodSelector = document.getElementById('period-selector');
+    const days = periodSelector ? parseInt(periodSelector.value) : 30;
+    state.totalItems = await fetchVulnerabilities(toolName, days);
+
     tableBody.innerHTML = '';
     if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Aucune vulnérabilité trouvée</td></tr>';
@@ -911,15 +963,15 @@ async function loadToolScanHistory(toolName) {
  * Récupération des vulnérabilités
  */
 
-async function fetchVulnerabilities(toolName) {
+async function fetchVulnerabilities(toolName, days = 30) {
     let text = '';
     let allVulnerabilities = [];
     let offset = 0;
-    const limit = 1000; // Match the API's page size
+    const limit = 1000;
 
     try {
         while (true) {
-            const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`);
+            const response = await fetch(`${API_BASE_URL}/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}&days=${days}`);
             text = await response.text();
             let cleanedText = text.replace(/null$/, '').trim();
             const lastValidBracket = cleanedText.lastIndexOf('}');
@@ -934,7 +986,7 @@ async function fetchVulnerabilities(toolName) {
                 allVulnerabilities = allVulnerabilities.concat(filteredData);
 
                 if (vulnData.length < limit) {
-                    break; // Exit loop if no more data
+                    break;
                 }
                 offset += limit;
             } else {
@@ -960,6 +1012,7 @@ async function fetchVulnerabilities(toolName) {
         return 0;
     }
 }
+
 /**
  * Mise à jour de la table des vulnérabilités
  */
@@ -1494,23 +1547,35 @@ function updateScanTrendsChart(trends) {
  */
 async function loadLatestScans() {
     const state = paginationState.dashboard.history;
-    const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/scans?limit=${ITEMS_PER_PAGE}&offset=${offset}`);
-        const data = await response.json();
-        const scans = data.data || [];
-
-        const tableBody = document.querySelector('#latest-scans-table tbody');
-        tableBody.innerHTML = '';
-
-        if (scans.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8">Aucun scan trouvé</td></tr>';
+    // ✅ Step 1: Fetch all data only once
+    if (allDashboardScans.length === 0) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/scans`); // no limit/offset
+            const data = await response.json();
+            allDashboardScans = data.data || [];
+        } catch (err) {
+            console.error('Erreur chargement latest scans:', err);
+            return;
         }
+    }
 
-        scans.forEach(scan => {
+    // ✅ Step 2: Paginate in memory
+    state.totalItems = allDashboardScans.length;
+    state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
+
+    const offset = (state.currentPage - 1) * ITEMS_PER_PAGE;
+    const pageData = allDashboardScans.slice(offset, offset + ITEMS_PER_PAGE);
+
+    const tableBody = document.querySelector('#latest-scans-table tbody');
+    tableBody.innerHTML = '';
+
+    if (pageData.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8">Aucun scan trouvé</td></tr>';
+    } else {
+        pageData.forEach(scan => {
             const row = document.createElement('tr');
-            row.classList.add(`status-${scan.scan_status}`); 
+            row.classList.add(`status-${scan.scan_status}`);
             row.innerHTML = `
                 <td>${formatDate(scan.scan_date)}</td>
                 <td>${scan.tool_name}</td>
@@ -1528,40 +1593,42 @@ async function loadLatestScans() {
             `;
             tableBody.appendChild(row);
         });
+    }
 
+    // ✅ Step 3: Update pagination controls
+    const prevButton = document.getElementById('dashboard-latestScans-prev-page');
+    const nextButton = document.getElementById('dashboard-latestScans-next-page');
+    const pageInfo = document.getElementById('dashboard-latestScans-page-info');
 
-        state.totalItems = data.total || scans.length;
-        state.totalPages = Math.ceil(state.totalItems / ITEMS_PER_PAGE);
+    if (prevButton && nextButton && pageInfo) {
+        prevButton.disabled = state.currentPage === 1;
+        nextButton.disabled = state.currentPage === state.totalPages;
 
-        const prevButton = document.getElementById('dashboard-latestScans-prev-page');
-        const nextButton = document.getElementById('dashboard-latestScans-next-page');
-        const pageInfo = document.getElementById('dashboard-latestScans-page-info');
+        const newPrev = prevButton.cloneNode(true);
+        const newNext = nextButton.cloneNode(true);
+        prevButton.parentNode.replaceChild(newPrev, prevButton);
+        nextButton.parentNode.replaceChild(newNext, nextButton);
 
-        if (prevButton && nextButton && pageInfo) {
-            prevButton.disabled = state.currentPage === 1;
-            nextButton.disabled = state.currentPage === state.totalPages;
+        newPrev.onclick = () => {
+            if (state.currentPage > 1) {
+                state.currentPage--;
+                loadLatestScans();
+            }
+        };
 
-            prevButton.onclick = () => {
-                if (state.currentPage > 1) {
-                    state.currentPage--;
-                    loadLatestScans();
-                }
-            };
+        newNext.onclick = () => {
+            if (state.currentPage < state.totalPages) {
+                state.currentPage++;
+                loadLatestScans();
+            }
+        };
 
-            nextButton.onclick = () => {
-                if (state.currentPage < state.totalPages) {
-                    state.currentPage++;
-                    loadLatestScans();
-                }
-            };
-
-            pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
-        }
-
-    } catch (err) {
-        console.error('Erreur chargement latest scans:', err);
+        pageInfo.textContent = `Page ${state.currentPage} sur ${state.totalPages}`;
     }
 }
+
+
+
 
 
 /**
@@ -1862,36 +1929,32 @@ function showNotification(message, type = 'info') {
 function downloadDashboardReport() {
     const date = new Date().toLocaleDateString();
     const title = 'Rapport de sécurité global - ' + date;
-    
-    // Récupérer les statistiques globales
-    const vulnsCount = document.getElementById('total-vulns')?.textContent || '0';
-    const criticalCount = document.getElementById('critical-vulns')?.textContent || '0';
-    const highCount = document.getElementById('high-vulns')?.textContent || '0';
-    const mediumCount = document.getElementById('medium-vulns')?.textContent || '0';
-    const lowCount = document.getElementById('low-vulns')?.textContent || '0';
-    
-    // Créer un contenu HTML pour le rapport
-    let reportContent = `
-        <html>
+
+    const getText = (id) => document.getElementById(id)?.textContent.trim() || '0';
+
+    const reportContent = `
+        <!DOCTYPE html>
+        <html lang="fr">
         <head>
+            <meta charset="UTF-8">
             <title>${title}</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
                 h1 { color: #333; }
-                .stats { margin: 20px 0; display: flex; flex-wrap: wrap; }
-                .stat-card { 
+                .stats { display: flex; flex-wrap: wrap; margin: 20px 0; }
+                .stat-card {
                     border: 1px solid #ddd;
                     border-radius: 8px;
                     padding: 15px;
                     margin: 10px;
-                    width: 200px;
+                    width: 180px;
                     text-align: center;
                 }
-                .stat-value { font-size: 24px; font-weight: bold; margin: 10px 0; }
+                .stat-value { font-size: 22px; font-weight: bold; margin: 10px 0; }
                 .stat-label { color: #666; }
                 .section { margin: 30px 0; }
                 h2 { color: #444; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-                table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+                table { border-collapse: collapse; width: 100%; margin-top: 10px; }
                 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                 th { background-color: #f2f2f2; }
                 .severity-critical { color: #d81b60; font-weight: bold; }
@@ -1903,83 +1966,31 @@ function downloadDashboardReport() {
         </head>
         <body>
             <h1>${title}</h1>
-            
+
             <div class="section">
                 <h2>Résumé des vulnérabilités</h2>
                 <div class="stats">
-                    <div class="stat-card">
-                        <div class="stat-label">Total</div>
-                        <div class="stat-value">${vulnsCount}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Critiques</div>
-                        <div class="stat-value severity-critical">${criticalCount}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Élevées</div>
-                        <div class="stat-value severity-high">${highCount}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Moyennes</div>
-                        <div class="stat-value severity-medium">${mediumCount}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Faibles</div>
-                        <div class="stat-value severity-low">${lowCount}</div>
-                    </div>
+                    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${getText('total-vulns')}</div></div>
+                    <div class="stat-card"><div class="stat-label">Critiques</div><div class="stat-value severity-critical">${getText('critical-vulns')}</div></div>
+                    <div class="stat-card"><div class="stat-label">Élevées</div><div class="stat-value severity-high">${getText('high-vulns')}</div></div>
+                    <div class="stat-card"><div class="stat-label">Moyennes</div><div class="stat-value severity-medium">${getText('medium-vulns')}</div></div>
+                    <div class="stat-card"><div class="stat-label">Faibles</div><div class="stat-value severity-low">${getText('low-vulns')}</div></div>
                 </div>
             </div>
-    `;
-    
-    // Capturer les graphiques si présents
-    const charts = document.querySelectorAll('canvas');
-    if (charts.length > 0) {
-        reportContent += `<div class="section"><h2>Graphiques</h2>`;
-        reportContent += `<p>Les graphiques ne sont pas inclus dans cette version du rapport. Veuillez consulter le dashboard pour les visualisations.</p>`;
-        reportContent += `</div>`;
-    }
-    
-    // Ajouter les dernières vulnérabilités si disponibles
-    const vulnsTable = document.querySelector('table[id="recent-vulnerabilities-table"]');
-    if (vulnsTable) {
-        reportContent += `<div class="section"><h2>Dernières vulnérabilités détectées</h2>`;
-        
-        // Cloner le tableau sans la colonne d'actions
-        const clonedTable = vulnsTable.cloneNode(true);
-        const actionColumns = clonedTable.querySelectorAll('th:last-child, td:last-child');
-        actionColumns.forEach(col => col.remove());
-        
-        reportContent += clonedTable.outerHTML;
-        reportContent += `</div>`;
-    }
-    
-    // Ajouter les derniers scans si disponibles
-    const scansTable = document.querySelector('table[id="recent-scans-table"]');
-    if (scansTable) {
-        reportContent += `<div class="section"><h2>Derniers scans effectués</h2>`;
-        
-        // Cloner le tableau sans la colonne d'actions
-        const clonedTable = scansTable.cloneNode(true);
-        const actionColumns = clonedTable.querySelectorAll('th:last-child, td:last-child');
-        actionColumns.forEach(col => col.remove());
-        
-        reportContent += clonedTable.outerHTML;
-        reportContent += `</div>`;
-    }
-    
-    reportContent += `
+
+            ${generateTableSection('recent-vulnerabilities-table', 'Dernières vulnérabilités détectées')}
+            ${generateTableSection('recent-scans-table', 'Derniers scans effectués')}
+
             <div class="footer">
-                <p>Rapport généré le ${new Date().toLocaleString()} via le Dashboard de Sécurité</p>
+                Rapport généré le ${new Date().toLocaleString()} via le Dashboard de Sécurité
             </div>
         </body>
         </html>
     `;
-    
-    // Créer un Blob avec le contenu HTML
+
     const blob = new Blob([reportContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    
-    // Créer un lien de téléchargement et le cliquer
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `security-dashboard-report-${date.replace(/\//g, '-')}.html`;
@@ -1988,6 +1999,24 @@ function downloadDashboardReport() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+
+// Helper function to clone a table without action buttons
+function generateTableSection(tableId, sectionTitle) {
+    const table = document.getElementById(tableId);
+    if (!table || !table.rows.length) return '';
+
+    const cloned = table.cloneNode(true);
+    const actionColumns = cloned.querySelectorAll('th:last-child, td:last-child');
+    actionColumns.forEach(col => col.remove());
+
+    return `
+        <div class="section">
+            <h2>${sectionTitle}</h2>
+            ${cloned.outerHTML}
+        </div>
+    `;
+}
+
 
 // Ajouter un gestionnaire d'événement pour le bouton de téléchargement
 document.addEventListener('DOMContentLoaded', function() {
@@ -2070,6 +2099,65 @@ function mapSeverityToRiskCode(severity) {
 }
 
 
+function processTrivyData(vulnerabilities) {
+    const severityCounts = {
+        CRITICAL: 0,
+        HIGH: 0,
+        MEDIUM: 0,
+        LOW: 0,
+        UNKNOWN: 0
+    };
+
+    vulnerabilities.forEach(vuln => {
+        const sev = vuln.severity?.toUpperCase() || 'UNKNOWN';
+        if (severityCounts[sev] !== undefined) {
+            severityCounts[sev]++;
+        } else {
+            severityCounts.UNKNOWN++;
+        }
+    });
+
+    const ctx = document.getElementById('trivy-severity-chart').getContext('2d');
+
+    if (window.trivyChart) {
+        window.trivyChart.destroy(); // Clean up previous chart
+    }
+
+    window.trivyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(severityCounts),
+            datasets: [{
+                label: 'Vuln par Sévérité',
+                data: Object.values(severityCounts),
+                backgroundColor: [
+                    '#d32f2f', // CRITICAL - red
+                    '#f44336', // HIGH - red
+                    '#ff9800', // MEDIUM - orange
+                    '#ffeb3b', // LOW - yellow
+                    '#9e9e9e'  // UNKNOWN - gray
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Répartition des vulnérabilités Trivy'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+
 async function loadZapData() {
     if (zapDataLoaded) return;
     zapDataLoaded = true;
@@ -2082,8 +2170,9 @@ async function loadZapData() {
             zapDataLoaded = false;
             return;
         }
-
-        const totalItems = await fetchVulnerabilities('zap');
+        const periodSelector = document.getElementById('period-selector');
+        const days = periodSelector ? parseInt(periodSelector.value) : 30;
+        const totalItems = await fetchVulnerabilities('zap', days);
 
         const scanResponse = await fetch(`${API_BASE_URL}/scans?tool_name=zap&limit=1`);
         const scanData = await scanResponse.json();
@@ -2225,7 +2314,7 @@ function updateVulnerabilityCounts(alerts) {
                 low++;
                 break;
             default:
-                low++; // Optionally treat unknown as "low"
+                low++;
         }
     });
 
@@ -2266,8 +2355,6 @@ function renderVulnerabilityCharts(scan, alerts = []) {
         console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
         return;
     }
-
-    // ✅ Use real data from scan stats
     const critical = scan.critical_severity_count || 0;
     const high = scan.high_severity_count || 0;
     const medium = scan.medium_severity_count || 0;
@@ -2294,8 +2381,6 @@ function renderVulnerabilityCharts(scan, alerts = []) {
                 }
             }
         });
-
-        // 🔄 Category chart (optional — from alerts list)
         const typeCounts = {};
         alerts.forEach(alert => {
             const title = alert.title || alert.alert || 'Unknown';
