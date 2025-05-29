@@ -340,8 +340,8 @@
                     <div class="d-flex justify-between align-center">
                         <span>Problèmes détectés</span>
                         <div>
-                            <button id="export-sonar-csv" class="btn btn-sm btn-primary">
-                                <i class="fas fa-download"></i> Exporter CSV
+                            <button id="export-sonar-PDF" class="btn btn-sm btn-primary">
+                                <i class="fas fa-download"></i> Exporter PDF
                             </button>
                         </div>
                     </div>
@@ -485,8 +485,8 @@
                     <div class="d-flex justify-between align-center">
                         <span>Vulnérabilités détectées</span>
                         <div>
-                            <button id="export-zap-csv" class="btn btn-sm btn-primary">
-                                <i class="fas fa-download"></i> Exporter CSV
+                            <button id="export-zap-PDF" class="btn btn-sm btn-primary">
+                                <i class="fas fa-download"></i> Exporter PDF
                             </button>
                         </div>
                     </div>
@@ -601,11 +601,6 @@
                 <div class="card-header">
                     <div class="d-flex justify-between align-center">
                         <span>Tests échoués récents</span>
-                        <div>
-                            <button id="export-selenium-csv" class="btn btn-sm btn-primary">
-                                <i class="fas fa-download"></i> Exporter CSV
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -680,6 +675,9 @@
     <script src="./assets/js/api.js"></script>
     <script src="./assets/js/main.js"></script>
     <script src="./assets/js/charts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
 
     <footer class="footer">
         <div class="footer-container">

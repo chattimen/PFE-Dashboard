@@ -12,4 +12,4 @@ $stats = $controller->getScanStats($filters);
 
 header('Content-Type: application/json');
 echo json_encode($stats);
-exit; // Ensure clean exit
+exit; 

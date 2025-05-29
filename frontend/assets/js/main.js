@@ -1926,79 +1926,122 @@ function showNotification(message, type = 'info') {
 /**
  * Génère et télécharge un rapport général du dashboard
  */
-function downloadDashboardReport() {
-    const date = new Date().toLocaleDateString();
-    const title = 'Rapport de sécurité global - ' + date;
+async function downloadDashboardReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
 
-    const getText = (id) => document.getElementById(id)?.textContent.trim() || '0';
+    // === 1. ZAP: Get only latest scan ===
+    let zap = { high: 0, medium: 0, low: 0, info: 0 };
+    try {
+        const res = await fetch('/api/vulnerabilities?tool_name=zap&limit=1000');
+        const json = await res.json();
+        if (json.status === 'success') {
+            const all = json.data || [];
 
-    const reportContent = `
-        <!DOCTYPE html>
-        <html lang="fr">
-        <head>
-            <meta charset="UTF-8">
-            <title>${title}</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                h1 { color: #333; }
-                .stats { display: flex; flex-wrap: wrap; margin: 20px 0; }
-                .stat-card {
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    padding: 15px;
-                    margin: 10px;
-                    width: 180px;
-                    text-align: center;
-                }
-                .stat-value { font-size: 22px; font-weight: bold; margin: 10px 0; }
-                .stat-label { color: #666; }
-                .section { margin: 30px 0; }
-                h2 { color: #444; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-                table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f2f2f2; }
-                .severity-critical { color: #d81b60; font-weight: bold; }
-                .severity-high { color: #e53935; font-weight: bold; }
-                .severity-medium { color: #fb8c00; }
-                .severity-low { color: #4caf50; }
-                .footer { margin-top: 50px; font-size: 12px; color: #999; text-align: center; }
-            </style>
-        </head>
-        <body>
-            <h1>${title}</h1>
+            // Use helper from your main.js
+            const latest = getLatestScanVulnerabilities(all);
 
-            <div class="section">
-                <h2>Résumé des vulnérabilités</h2>
-                <div class="stats">
-                    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${getText('total-vulns')}</div></div>
-                    <div class="stat-card"><div class="stat-label">Critiques</div><div class="stat-value severity-critical">${getText('critical-vulns')}</div></div>
-                    <div class="stat-card"><div class="stat-label">Élevées</div><div class="stat-value severity-high">${getText('high-vulns')}</div></div>
-                    <div class="stat-card"><div class="stat-label">Moyennes</div><div class="stat-value severity-medium">${getText('medium-vulns')}</div></div>
-                    <div class="stat-card"><div class="stat-label">Faibles</div><div class="stat-value severity-low">${getText('low-vulns')}</div></div>
-                </div>
-            </div>
+            latest.forEach(v => {
+                const sev = (v.severity || '').toLowerCase();
+                if (sev === 'high') zap.high++;
+                else if (sev === 'medium') zap.medium++;
+                else if (sev === 'low') zap.low++;
+                else zap.info++;
+            });
+        }
+    } catch (err) {
+        console.error('Failed to load ZAP data:', err);
+    }
 
-            ${generateTableSection('recent-vulnerabilities-table', 'Dernières vulnérabilités détectées')}
-            ${generateTableSection('recent-scans-table', 'Derniers scans effectués')}
+    // === 2. Trivy (same logic) ===
+    let trivy = {};
+    try {
+        const res = await fetch('/api/vulnerabilities?tool_name=trivy&limit=1000');
+        const json = await res.json();
+        if (json.status === 'success') {
+            const all = json.data || [];
+            const latest = getLatestScanVulnerabilities(all);
+            latest.forEach(v => {
+                const sev = (v.severity || 'UNKNOWN').toUpperCase();
+                trivy[sev] = (trivy[sev] || 0) + 1;
+            });
+        }
+    } catch (err) {
+        console.error('Failed to load Trivy data:', err);
+    }
 
-            <div class="footer">
-                Rapport généré le ${new Date().toLocaleString()} via le Dashboard de Sécurité
-            </div>
-        </body>
-        </html>
-    `;
+    // === 3. Sonar ===
+    let sonar = { bugs: 0, vulnerabilities: 0, codeSmells: 0, coverage: "N/A" };
+    try {
+        const res = await fetch('/api/vulnerabilities?tool_name=sonarqube&limit=1000');
+        const json = await res.json();
+        if (json.status === 'success') {
+            const all = json.data || [];
+            const latest = getLatestScanVulnerabilities(all);
 
-    const blob = new Blob([reportContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
+            latest.forEach(v => {
+                const cat = v.category?.toUpperCase();
+                if (cat === 'BUG') sonar.bugs++;
+                else if (cat === 'VULNERABILITY') sonar.vulnerabilities++;
+                else if (cat === 'CODE_SMELL') sonar.codeSmells++;
+            });
+        }
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `security-dashboard-report-${date.replace(/\//g, '-')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        // Optional: Get coverage from DOM
+        const coverageEl = document.getElementById('sonar-coverage-percent');
+        if (coverageEl) sonar.coverage = coverageEl.textContent.trim();
+    } catch (err) {
+        console.error('Failed to load SonarQube data:', err);
+    }
+
+    // === PDF output ===
+    doc.setFontSize(18);
+    doc.text("Security & Code Quality Report", 14, 20);
+
+    // ZAP
+    doc.setFontSize(14);
+    doc.text("ZAP Scan Results", 14, 30);
+    doc.autoTable({
+        startY: 35,
+        head: [["Severity", "Count"]],
+        body: [
+            ["High", zap.high],
+            ["Medium", zap.medium],
+            ["Low", zap.low],
+            ["Info", zap.info],
+        ],
+        theme: "striped"
+    });
+
+    // Trivy
+    const trivyStartY = doc.previousAutoTable.finalY + 10;
+    doc.text("Trivy Scan Results", 14, trivyStartY);
+    doc.autoTable({
+        startY: trivyStartY + 5,
+        head: [["Severity", "Count"]],
+        body: Object.entries(trivy).map(([s, c]) => [s, c]),
+        theme: "striped"
+    });
+
+    // Sonar
+    const sonarStartY = doc.previousAutoTable.finalY + 10;
+    doc.text("SonarQube Results", 14, sonarStartY);
+    doc.autoTable({
+        startY: sonarStartY + 5,
+        head: [["Metric", "Value"]],
+        body: [
+            ["Bugs", sonar.bugs],
+            ["Vulnerabilities", sonar.vulnerabilities],
+            ["Code Smells", sonar.codeSmells],
+            ["Coverage", sonar.coverage],
+        ],
+        theme: "striped"
+    });
+
+    doc.save("dashboard-report.pdf");
 }
+
+
 
 // Helper function to clone a table without action buttons
 function generateTableSection(tableId, sectionTitle) {
@@ -2019,14 +2062,10 @@ function generateTableSection(tableId, sectionTitle) {
 
 
 // Ajouter un gestionnaire d'événement pour le bouton de téléchargement
-document.addEventListener('DOMContentLoaded', function() {
-    const downloadButton = document.getElementById('download-report');
-    if (downloadButton) {
-        downloadButton.addEventListener('click', function() {
-            downloadDashboardReport();
-        });
-    }
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('download-report').addEventListener('click', downloadDashboardReport);
 });
+
 
 // ZAP Page Functions
 document.addEventListener('DOMContentLoaded', function() {
@@ -2587,9 +2626,36 @@ function initializeEventHandlers(alerts) {
     }
 
     const exportBtn = document.getElementById('export-zap-csv');
+
     if (exportBtn) {
-        exportBtn.addEventListener('click', () => exportToCSV(alerts));
+        exportBtn.addEventListener('click', function () {
+            exportToPDF(alerts);  // appel à la nouvelle fonction PDF
+        });
     }
+
+    async function exportToPDF(alerts) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        let y = 10; // Position verticale
+
+        doc.setFontSize(12);
+        doc.text("Rapport des alertes ZAP", 10, y);
+        y += 10;
+
+        alerts.forEach((alert, index) => {
+            const alertText = `#${index + 1} - ${alert.name || alert.title || 'Alerte'} : ${alert.risk || 'N/A'}`;
+            doc.text(alertText, 10, y);
+            y += 10;
+
+            if (y > 270) { // Crée une nouvelle page si on dépasse la hauteur
+                doc.addPage();
+                y = 10;
+            }
+        });
+
+        doc.save("alertes-zap.pdf");
+}
 }
 
 
