@@ -508,6 +508,7 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'right',
@@ -525,6 +526,41 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
     });
 }
 
+function createZapSeverityChart(ctx, critical, high, medium, low, darkMode) {
+    if (window.zapSeverityChart) {
+        window.zapSeverityChart.destroy();
+    }
+    window.zapSeverityChart = new Chart(ctx, {
+        type: 'doughnut', // Consistent type
+        data: {
+            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
+            datasets: [{
+                data: [critical, high, medium, low],
+                backgroundColor: ['#F75D83', '#FFE275', '#50D1E6', '#4A4AFF'],
+                borderWidth: 1,
+                radius: '50%',    // Smaller size
+                cutout: '70%'     // Thinner ring
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: darkMode ? '#ffffff' : '#000000'
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Répartition des vulnérabilités ZAP',
+                    color: darkMode ? '#ffffff' : '#000000'
+                }
+            }
+        }
+    });
+}
 /**
  * Chargement des tendances des vulnérabilités
  */
@@ -852,8 +888,7 @@ async function loadZapStats() {
         const low = scan.low_severity_count || 0;
         const total = scan.total_issues || (critical + high + medium + low);
 
-        // Set text content
-       const elCritical = document.getElementById('zap-critical-count');
+        const elCritical = document.getElementById('zap-critical-count');
         if (elCritical) elCritical.textContent = critical;
 
         const elHigh = document.getElementById('zap-high-count');
@@ -868,12 +903,11 @@ async function loadZapStats() {
         const elTotal = document.getElementById('zap-total-count');
         if (elTotal) elTotal.textContent = total;
 
-
-        // Update pie chart if you have one
         if (document.getElementById('zap-severity-chart')) {
-            updateZapSeverityChart(critical, high, medium, low);
+            const canvas = document.getElementById('zap-severity-chart');
+            const ctx = canvas.getContext('2d');
+            createZapSeverityChart(ctx, critical, high, medium, low, darkMode);
         }
-
     } catch (error) {
         console.error('Erreur lors du chargement des stats ZAP:', error);
     }
@@ -885,39 +919,37 @@ function updateZapSeverityChart(critical, high, medium, low) {
 
     const ctx = canvas.getContext('2d');
 
-    // Destroy existing chart if it exists
-    if (window.zapSeverityChart instanceof Chart) {
-        window.zapSeverityChart.destroy();
-    }
 
     // Create new chart and store reference
     window.zapSeverityChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
-            datasets: [{
-                data: [critical, high, medium, low],
-                backgroundColor: ['#F75D83','#FFE275', '#50D1E6',  '#4A4AFF'],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: darkMode ? '#ffffff' : '#000000'
-                    }
-                },
-                title: {
-                    display: true,
-                    text: 'Répartition des vulnérabilités ZAP',
+    type: 'doughnut',
+    data: {
+        labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
+        datasets: [{
+            data: [critical, high, medium, low],
+            backgroundColor: ['#F75D83', '#FFE275', '#50D1E6', '#4A4AFF'],
+            borderWidth: 1,
+            radius: '50%',    // Reduced from default (100%) to 50% to make it smaller
+            cutout: '70%'     // Adjusted to 70% for a thinner ring
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
                     color: darkMode ? '#ffffff' : '#000000'
                 }
+            },
+            title: {
+                display: true,
+                text: 'Répartition des vulnérabilités ZAP',
+                color: darkMode ? '#ffffff' : '#000000'
             }
         }
-    });
+    }
+});
 }
 
 
@@ -2371,7 +2403,6 @@ function renderVulnerabilityCharts(scan, alerts = []) {
     if (window.zapSeverityChart instanceof Chart) {
         window.zapSeverityChart.destroy();
     }
-
     if (window.zapCategoryChart instanceof Chart) {
         window.zapCategoryChart.destroy();
     }
@@ -2380,32 +2411,16 @@ function renderVulnerabilityCharts(scan, alerts = []) {
         console.warn("Un ou plusieurs éléments canvas de graphique ZAP non trouvés");
         return;
     }
+
     const critical = scan.critical_severity_count || 0;
     const high = scan.high_severity_count || 0;
     const medium = scan.medium_severity_count || 0;
-    const low = scan.low_severity_count || 0;
+    low = scan.low_severity_count || 0;
 
     try {
         const severityCtx = severityChart.getContext('2d');
-        window.zapSeverityChart = new Chart(severityCtx, {
-            type: 'pie',
-            data: {
-                labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
-                datasets: [{
-                    data: [critical, high, medium, low],
-                    backgroundColor: ['#F75D83','#FFE275', '#50D1E6',  '#4A4AFF'],
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right'
-                    }
-                }
-            }
-        });
+        createZapSeverityChart(severityCtx, critical, high, medium, low, darkMode);
+
         const typeCounts = {};
         alerts.forEach(alert => {
             const title = alert.title || alert.alert || 'Unknown';
@@ -2423,7 +2438,9 @@ function renderVulnerabilityCharts(scan, alerts = []) {
                 datasets: [{
                     label: 'Types de vulnérabilités (Top 10)',
                     data: typeData,
-                    backgroundColor: '#4A4AFF'
+                    backgroundColor: '#4A4AFF',
+                    radius: '50%',
+                    cutout: '70%'
                 }]
             },
             options: {
@@ -2444,7 +2461,6 @@ function renderVulnerabilityCharts(scan, alerts = []) {
                 }
             }
         });
-
     } catch (e) {
         console.error("Erreur lors de la création des graphiques ZAP:", e);
     }
@@ -2502,11 +2518,13 @@ function renderSonarCharts(scan) {
             labels: ['Blocker', 'Critical', 'Major', 'Minor', 'Info'],
             datasets: [{
                 data: [blocker, critical, major, minor, info],
-                backgroundColor: ['#F75D83','#FFE275', '#50D1E6',  '#4A4AFF', '#999']
+                backgroundColor: ['#F75D83','#FFE275', '#50D1E6',  '#4A4AFF', '#999'],
+                radius: '50%'
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: { position: 'right' }
             }
@@ -2586,6 +2604,7 @@ function populateVulnerabilityTable(alerts) {
     });
     initializeEventHandlers(alerts);
 }
+
 function initializeEventHandlers(alerts) {
     const detailButtons = document.querySelectorAll('#zap-vulnerabilities-table-body .btn-info');
     detailButtons.forEach(button => {

@@ -93,12 +93,14 @@ function createVulnerabilityDistributionChart(ctx, data, darkMode = false) {
                     CHART_COLORS.medium,
                     CHART_COLORS.low
                 ],
-                borderWidth: 1
+                borderWidth: 1,
+                radius: '95%',      // 🟢 make the donut fill more of the canvas
+                cutout: '100%'       // 🟢 control the thickness of the donut ring
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: false,
+            maintainAspectRatio: true,
             plugins: {
                 legend: {
                     position: 'right',
@@ -113,8 +115,8 @@ function createVulnerabilityDistributionChart(ctx, data, darkMode = false) {
                 }
             }
         }
-
     });
+
 }
 
 /**
