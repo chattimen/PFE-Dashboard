@@ -4,34 +4,30 @@
 
 // Constantes pour les couleurs des graphiques
 const CHART_COLORS = {
-    // Sévérités
-    critical: '#d81b60', // Rouge
-    high: '#e65100',     // Orange
-    medium: '#ffc107',   // Jaune
-    low: '#2196f3',      // Bleu
-    info: '#03a9f4',     // Bleu clair
-    
-    // Outils
-    trivy: '#4caf50',      // Vert
-    sonarqube: '#2196f3',  // Bleu
-    owasp_zap: '#f44336',  // Rouge
-    selenium: '#ff9800',   // Orange
-    
-    // Statuts
-    success: '#4caf50',  // Vert
-    warning: '#ffc107',  // Jaune
-    failed: '#f44336',   // Rouge
-    
-    // Styles par défaut
-    background: '#f5f5f5',
-    text: '#333333',
-    grid: 'rgba(0, 0, 0, 0.1)',
-    
-    // Styles dark mode
+    critical: '#F75D83', // pink
+    high:     '#FFE275', // yellow
+    medium:   '#50D1E6', // aqua
+    low:      '#4A4AFF', // blue
+    info:     '#A3A3A3',
+
+    trivy:     '#4A4AFF',  // primary blue
+    sonarqube: '#50D1E6',  // aqua
+    owasp_zap: '#F75D83',  // pink
+    selenium:  '#FFE275',  // yellow
+
+    success: '#4A4AFF',
+    warning: '#FFE275',
+    failed:  '#F75D83',
+
+    background: '#F2F2F2',
+    text: '#2F2F2F',
+    grid: 'rgba(0, 0, 0, 0.05)',
+
     darkBackground: '#121212',
     darkText: '#ffffff',
     darkGrid: 'rgba(255, 255, 255, 0.1)'
 };
+
 
 /**
  * Configuration par défaut pour tous les graphiques

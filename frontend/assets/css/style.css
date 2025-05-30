@@ -4,41 +4,51 @@
 
 /* Variables */
 :root {
-    --primary-color: #2196f3;
-    --secondary-color: #607d8b;
-    --success-color: #a7e1a9; /* Pastel green (was #4caf50) */
-    --warning-color: #ffe082; /* Pastel yellow (was #ffc107) */
-    --danger-color: #ff9999; /* Pastel red (was #f44336) */
-    --info-color: #03a9f4;
-    
-    --severity-critical: #f4a1c1; /* Pastel pink (was #d81b60) */
-    --severity-high: #ffb299; /* Pastel peach (was #e65100) */
-    --severity-medium: #ffe082; /* Pastel yellow (same as --warning-color, was #ffc107) */
-    --severity-low: #2196f3;
-    --severity-info: #03a9f4;
-    
-    --status-open: #ff9999; /* Pastel red (same as --danger-color, was #f44336) */
-    --status-fixed: #a7e1a9; /* Pastel green (same as --success-color, was #4caf50) */
-    --status-false-positive: #ffcc80; /* Pastel orange (was #ff9800) */
-    --status-accepted-risk: #9e9e9e;
-    
-    --scan-success: #a7e1a9; /* Pastel green (same as --success-color, was #4caf50) */
-    --scan-warning: #ffe082; /* Pastel yellow (same as --warning-color, was #ffc107) */
-    --scan-failed: #ff9999; /* Pastel red (same as --danger-color, was #f44336) */
-    
-    --light-bg: #f5f5f5;
-    --light-card: #ffffff;
-    --light-text: #333333;
-    --light-border: #e0e0e0;
-    
-    --dark-bg: #121212;
-    --dark-card: #1e1e1e;
-    --dark-text: #ffffff;
-    --dark-border: #333333;
-    
-    --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --border-radius: 4px;
+  /* Primary palette (based on chart colors) */
+  --primary-color: #4A4AFF;      /* royal blue */
+  --secondary-color: #607d8b;    /* slate gray */
+
+  /* Semantic colors */
+  --success-color: #36ac00;      /* cyan success */
+  --warning-color: #FFE275;      /* yellow warning */
+  --danger-color: #F75D83;       /* coral danger */
+  --info-color: #50D1E6;         /* consistent with medium */
+
+  /* Severity levels */
+  --severity-critical: #F75D83;  /* bright coral pink */
+  --severity-high: #FFE275;      /* soft yellow */
+  --severity-medium: #50D1E6;    /* cyan */
+  --severity-low: #4A4AFF;       /* blue */
+  --severity-info: #8BC34A;      /* soft green */
+
+  /* Status tags */
+  --status-open: #F75D83;
+  --status-fixed: #50D1E6;
+  --status-false-positive: #FFB347; /* orange */
+  --status-accepted-risk: #B0BEC5;  /* cool gray */
+
+  /* Scan statuses */
+  --scan-success: #50D1E6;
+  --scan-warning: #FFE275;
+  --scan-failed: #F75D83;
+
+  /* Light mode */
+  --light-bg: #f9f9f9;
+  --light-card: #ffffff;
+  --light-text: #2c3e50;
+  --light-border: #e0e0e0;
+
+  /* Dark mode */
+  --dark-bg: #1b1b2f;
+  --dark-card: #2c2c3a;
+  --dark-text: #e0e0e0;
+  --dark-border: #3a3a4f;
+
+  /* Shared */
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --border-radius: 6px;
 }
+
 /* Reset et base */
 * {
     margin: 0;
@@ -230,7 +240,7 @@ body.dark-mode input {
 
 .navbar-logo {
     display: flex;
-    align-items: right;
+    align-items: center;
 }
 
 .navbar-logo img {
