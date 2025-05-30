@@ -502,12 +502,7 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
             labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
             datasets: [{
                 data: [critical, high, medium, low],
-                backgroundColor: [
-                    '#d81b60', // Rouge
-                    '#e65100', // Orange
-                    '#ffc107', // Jaune
-                    '#2196f3'  // Bleu
-                ],
+                backgroundColor: ['#F8BBD0', '#FFE0B2', '#FFECB3', '#C8E6C9'],
                 borderWidth: 1
             }]
         },
@@ -585,7 +580,7 @@ function updateVulnerabilityTrendsChart(trends) {
                 {
                     label: 'Critique',
                     data: criticalData,
-                    backgroundColor: 'rgba(216, 27, 96, 0.2)',
+                    backgroundColor: '#F8BBD0',
                     borderColor: '#d81b60',
                     borderWidth: 2,
                     tension: 0.4
@@ -593,7 +588,7 @@ function updateVulnerabilityTrendsChart(trends) {
                 {
                     label: 'Élevée',
                     data: highData,
-                    backgroundColor: 'rgba(230, 81, 0, 0.2)',
+                    backgroundColor: '	#FFE0B2',
                     borderColor: '#e65100',
                     borderWidth: 2,
                     tension: 0.4
@@ -601,7 +596,7 @@ function updateVulnerabilityTrendsChart(trends) {
                 {
                     label: 'Moyenne',
                     data: mediumData,
-                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                    backgroundColor: '#FFECB3',
                     borderColor: '#ffc107',
                     borderWidth: 2,
                     tension: 0.4
@@ -609,7 +604,7 @@ function updateVulnerabilityTrendsChart(trends) {
                 {
                     label: 'Faible',
                     data: lowData,
-                    backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                    backgroundColor: '#C8E6C9',
                     borderColor: '#2196f3',
                     borderWidth: 2,
                     tension: 0.4
@@ -724,7 +719,7 @@ async function initZapPage() {
     try {
         await loadTableData('zap', 'vulnerabilities');
         await loadTableData('zap', 'history');
-        await loadZapStats();  // 👈 ADD THIS LINE
+        await loadZapStats();  
     } catch (error) {
         console.error('Erreur lors de l\'initialisation de la page ZAP:', error);
         showNotification('Erreur lors de l\'initialisation de ZAP', 'error');
@@ -902,7 +897,7 @@ function updateZapSeverityChart(critical, high, medium, low) {
             labels: ['Critique', 'Élevée', 'Moyenne', 'Faible'],
             datasets: [{
                 data: [critical, high, medium, low],
-                backgroundColor: ['#d81b60', '#e65100', '#ffc107', '#2196f3'],
+                backgroundColor: ['#F8BBD0', '#FFE0B2', '#FFECB3', '#C8E6C9'],
                 borderWidth: 1
             }]
         },
@@ -1548,7 +1543,6 @@ function updateScanTrendsChart(trends) {
 async function loadLatestScans() {
     const state = paginationState.dashboard.history;
 
-    // ✅ Step 1: Fetch all data only once
     if (allDashboardScans.length === 0) {
         try {
             const response = await fetch(`${API_BASE_URL}/scans`); // no limit/offset
@@ -1559,8 +1553,6 @@ async function loadLatestScans() {
             return;
         }
     }
-
-    // ✅ Step 2: Paginate in memory
     state.totalItems = allDashboardScans.length;
     state.totalPages = Math.max(1, Math.ceil(state.totalItems / ITEMS_PER_PAGE));
 
@@ -2169,13 +2161,7 @@ function processTrivyData(vulnerabilities) {
             datasets: [{
                 label: 'Vuln par Sévérité',
                 data: Object.values(severityCounts),
-                backgroundColor: [
-                    '#d32f2f', // CRITICAL - red
-                    '#f44336', // HIGH - red
-                    '#ff9800', // MEDIUM - orange
-                    '#ffeb3b', // LOW - yellow
-                    '#9e9e9e'  // UNKNOWN - gray
-                ]
+                backgroundColor: ['#F8BBD0', '#FFE0B2', '#FFECB3', '#C8E6C9']
             }]
         },
         options: {
@@ -2407,7 +2393,7 @@ function renderVulnerabilityCharts(scan, alerts = []) {
                 labels: ['Critique', 'Élevée', 'Moyenne', 'Faible/Info'],
                 datasets: [{
                     data: [critical, high, medium, low],
-                    backgroundColor: ['#ff4d4d', '#ffaa00', '#ffcc00', '#5bc0de']
+                    backgroundColor: ['#F8BBD0', '#FFE0B2', '#FFECB3', '#C8E6C9']
                 }]
             },
             options: {
@@ -2437,7 +2423,7 @@ function renderVulnerabilityCharts(scan, alerts = []) {
                 datasets: [{
                     label: 'Types de vulnérabilités (Top 10)',
                     data: typeData,
-                    backgroundColor: '#36a2eb'
+                    backgroundColor: '#AEC6CF'
                 }]
             },
             options: {
@@ -2516,7 +2502,7 @@ function renderSonarCharts(scan) {
             labels: ['Blocker', 'Critical', 'Major', 'Minor', 'Info'],
             datasets: [{
                 data: [blocker, critical, major, minor, info],
-                backgroundColor: ['#d9534f', '#f0ad4e', '#5bc0de', '#5cb85c', '#999']
+                backgroundColor: ['#F8BBD0', '#FFE0B2', '#FFECB3', '#C8E6C9', '#999']
             }]
         },
         options: {
@@ -2535,7 +2521,7 @@ function renderSonarCharts(scan) {
             datasets: [{
                 label: 'Issues',
                 data: [bugs, vulnerabilities, codeSmells],
-                backgroundColor: ['#f39c12', '#e74c3c', '#3498db']
+                backgroundColor: ['#F8BBD0', '#FFE0B2', '#C8E6C9'],
             }]
         },
         options: {

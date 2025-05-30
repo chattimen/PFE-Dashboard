@@ -102,6 +102,7 @@ function createVulnerabilityDistributionChart(ctx, data, darkMode = false) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'right',
@@ -116,6 +117,7 @@ function createVulnerabilityDistributionChart(ctx, data, darkMode = false) {
                 }
             }
         }
+
     });
 }
 
