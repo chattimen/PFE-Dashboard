@@ -177,6 +177,9 @@ body.dark-mode input {
     border-top: 1px solid var(--light-border);
     text-align: right;
 }
+.card-footer .btn {
+    margin-right: 10px; /* Optional: Adds spacing if multiple buttons exist */
+}
 
 /* Stats cards */
 .stat-card {
@@ -232,7 +235,7 @@ body.dark-mode input {
 
 .navbar-container {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
     padding: 0 20px;
     height: 64px;
@@ -245,18 +248,15 @@ body.dark-mode input {
 
 .navbar-logo img {
     height: 60px;
-    margin-left: auto;
 }
 
-.navbar-logo h1 {
-    font-size: 18px;
-    font-weight: 500;
-}
 
 .navbar-nav {
     display: flex;
     list-style: none;
-    margin-left: auto;
+    margin: 0;
+    align-items: center;
+    flex-wrap: nowrap;
 }
 
 .navbar-nav li {
@@ -266,9 +266,13 @@ body.dark-mode input {
 .navbar-nav a {
     color: var(--light-text);
     text-decoration: none;
-    padding: 8px 12px;
+    padding: 12px 20px; /* Increased padding for bigger buttons */
+    font-size: 16px; /* Increased font size */
     border-radius: var(--border-radius);
     transition: background-color 0.3s;
+    height: 48px; /* Added height to ensure uniform size */
+    display: flex;
+    align-items: center;
 }
 
 .navbar-nav a:hover {
@@ -417,7 +421,7 @@ body.dark-mode .pagination span {
 }
 
 .severity-medium {
-    background-color: #ffbf3e; color: #000;
+    background-color: var(--severity-medium);
 }
 
 .severity-low {
@@ -751,22 +755,47 @@ body.dark-mode .notification {
         width: 100%; /* Full width on smaller screens */
         min-height: 200px; /* Maintain the smaller height */
     }
-}
-    
     .navbar-container {
-        flex-direction: column;
-        height: auto;
         padding: 10px;
+        height: auto;
+        flex-direction: row; /* Keep row direction to maintain logo and nav on the same line */
+        flex-wrap: nowrap; /* Prevent wrapping */
     }
     
     .navbar-nav {
-        margin-top: 10px;
-        flex-wrap: wrap;
-        justify-content: center;
+        flex-wrap: nowrap; /* Keep nav items on one line */
     }
     
     .navbar-nav li {
-        margin: 5px;
+        margin-left: 10px; /* Reduce margin for smaller screens */
+    }
+    
+    .navbar-nav a {
+        padding: 8px 16px; /* Slightly reduced padding for smaller screens */
+        font-size: 14px; /* Adjusted font size */
+        height: 40px; /* Adjusted height */
+    }
+    
+    .navbar-logo img {
+        height: 40px; /* Reduce logo size for smaller screens */
+    }
+    
+}
+    
+     .navbar-container {
+        padding: 10px;
+        height: auto;
+        flex-direction: row; /* Keep row direction to maintain logo and nav on the same line */
+        flex-wrap: nowrap; /* Prevent wrapping */
+    }
+    
+    .navbar-nav {
+        flex-wrap: nowrap; /* Keep nav items on one line */
+    }
+    
+    
+    .navbar-nav li {
+        margin-left: 10px; /* Reduce margin for smaller screens */
     }
     
     .modal-content {

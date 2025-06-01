@@ -503,7 +503,9 @@ function updateVulnerabilityDistributionChart(critical, high, medium, low) {
             datasets: [{
                 data: [critical, high, medium, low],
                 backgroundColor: ['#F75D83','#FFE275', '#50D1E6',  '#4A4AFF'],
-                borderWidth: 1
+                borderWidth: 1,
+                radius: '100%',    // Reduced from default (100%) to 50% to make it smaller
+                cutout: '0%' 
             }]
         },
         options: {
@@ -538,8 +540,8 @@ function createZapSeverityChart(ctx, critical, high, medium, low, darkMode) {
                 data: [critical, high, medium, low],
                 backgroundColor: ['#F75D83', '#FFE275', '#50D1E6', '#4A4AFF'],
                 borderWidth: 1,
-                radius: '50%',    // Smaller size
-                cutout: '70%'     // Thinner ring
+                radius: '100%',    // Reduced from default (100%) to 50% to make it smaller
+                cutout: '0%' 
             }]
         },
         options: {
@@ -617,15 +619,15 @@ function updateVulnerabilityTrendsChart(trends) {
                     label: 'Critique',
                     data: criticalData,
                     backgroundColor: '#F75D83',
-                    borderColor: '#d81b60',
+                    borderColor: '#F75D83',
                     borderWidth: 2,
                     tension: 0.4
                 },
                 {
                     label: 'Élevée',
                     data: highData,
-                    backgroundColor: '	#FFE275',
-                    borderColor: '#e65100',
+                    backgroundColor: '#f5cc3a',
+                    borderColor: '#f5cc3a',
                     borderWidth: 2,
                     tension: 0.4
                 },
@@ -633,15 +635,15 @@ function updateVulnerabilityTrendsChart(trends) {
                     label: 'Moyenne',
                     data: mediumData,
                     backgroundColor: '#50D1E6',
-                    borderColor: '#ffc107',
+                    borderColor: '#50D1E6',
                     borderWidth: 2,
                     tension: 0.4
                 },
                 {
                     label: 'Faible',
                     data: lowData,
-                    backgroundColor: '#C8E6C9',
-                    borderColor: '#2196f3',
+                    backgroundColor: '#4A4AFF',
+                    borderColor: '#4A4AFF',
                     borderWidth: 2,
                     tension: 0.4
                 }
@@ -929,12 +931,14 @@ function updateZapSeverityChart(critical, high, medium, low) {
             data: [critical, high, medium, low],
             backgroundColor: ['#F75D83', '#FFE275', '#50D1E6', '#4A4AFF'],
             borderWidth: 1,
-            radius: '50%',    // Reduced from default (100%) to 50% to make it smaller
-            cutout: '70%'     // Adjusted to 70% for a thinner ring
+            radius: '100%',    // Reduced from default (100%) to 50% to make it smaller
+            cutout: '0%' 
+
         }]
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
             legend: {
                 position: 'bottom',
@@ -1947,6 +1951,27 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+async function fetchAllVulnerabilities(toolName) {
+    const all = [];
+    const limit = 1000;
+    let offset = 0;
+
+    while (true) {
+        const res = await fetch(`/api/vulnerabilities?tool_name=${toolName}&limit=${limit}&offset=${offset}`);
+        const json = await res.json();
+
+        if (json.status !== 'success') break;
+
+        const data = json.data || [];
+        all.push(...data);
+
+        if (data.length < limit) break;
+        offset += limit;
+    }
+
+    return all;
+}
+
 /**
  * Génère et télécharge un rapport général du dashboard
  */
@@ -1954,115 +1979,66 @@ async function downloadDashboardReport() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // === 1. ZAP: Get only latest scan ===
-    let zap = { high: 0, medium: 0, low: 0, info: 0 };
-    try {
-        const res = await fetch('/api/vulnerabilities?tool_name=zap&limit=1000');
-        const json = await res.json();
-        if (json.status === 'success') {
-            const all = json.data || [];
+    // === ZAP ===
+    const zapScanRes = await fetch('/api/scans?tool_name=zap&limit=1');
+    const zapScanJson = await zapScanRes.json();
+    const zap = zapScanJson?.data?.[0] || {};
+    const zapData = {
+        High: zap.high_severity_count || 0,
+        Medium: zap.medium_severity_count || 0,
+        Low: zap.low_severity_count || 0,
+        Info: zap.info_severity_count || 0
+    };
 
-            // Use helper from your main.js
-            const latest = getLatestScanVulnerabilities(all);
+    // === Trivy ===
+    const trivyAll = await fetchAllVulnerabilities('trivy');
+    const trivyLatest = getLatestScanVulnerabilities(trivyAll);
+    const trivyData = {};
+    trivyLatest.forEach(v => {
+        const severity = (v.severity || 'UNKNOWN').toUpperCase();
+        trivyData[severity] = (trivyData[severity] || 0) + 1;
+    });
 
-            latest.forEach(v => {
-                const sev = (v.severity || '').toLowerCase();
-                if (sev === 'high') zap.high++;
-                else if (sev === 'medium') zap.medium++;
-                else if (sev === 'low') zap.low++;
-                else zap.info++;
-            });
+    // === SonarQube ===
+    const sonarAll = await fetchAllVulnerabilities('sonarqube');
+    const sonarLatest = getLatestScanVulnerabilities(sonarAll);
+    const sonarData = { BUG: 0, VULNERABILITY: 0, CODE_SMELL: 0 };
+    sonarLatest.forEach(v => {
+        const category = (v.category || '').toUpperCase();
+        if (category in sonarData) {
+            sonarData[category]++;
         }
-    } catch (err) {
-        console.error('Failed to load ZAP data:', err);
-    }
+    });
 
-    // === 2. Trivy (same logic) ===
-    let trivy = {};
-    try {
-        const res = await fetch('/api/vulnerabilities?tool_name=trivy&limit=1000');
-        const json = await res.json();
-        if (json.status === 'success') {
-            const all = json.data || [];
-            const latest = getLatestScanVulnerabilities(all);
-            latest.forEach(v => {
-                const sev = (v.severity || 'UNKNOWN').toUpperCase();
-                trivy[sev] = (trivy[sev] || 0) + 1;
-            });
-        }
-    } catch (err) {
-        console.error('Failed to load Trivy data:', err);
-    }
-
-    // === 3. Sonar ===
-    let sonar = { bugs: 0, vulnerabilities: 0, codeSmells: 0, coverage: "N/A" };
-    try {
-        const res = await fetch('/api/vulnerabilities?tool_name=sonarqube&limit=1000');
-        const json = await res.json();
-        if (json.status === 'success') {
-            const all = json.data || [];
-            const latest = getLatestScanVulnerabilities(all);
-
-            latest.forEach(v => {
-                const cat = v.category?.toUpperCase();
-                if (cat === 'BUG') sonar.bugs++;
-                else if (cat === 'VULNERABILITY') sonar.vulnerabilities++;
-                else if (cat === 'CODE_SMELL') sonar.codeSmells++;
-            });
-        }
-
-        // Optional: Get coverage from DOM
-        const coverageEl = document.getElementById('sonar-coverage-percent');
-        if (coverageEl) sonar.coverage = coverageEl.textContent.trim();
-    } catch (err) {
-        console.error('Failed to load SonarQube data:', err);
-    }
-
-    // === PDF output ===
+    // === PDF content ===
     doc.setFontSize(18);
-    doc.text("Security & Code Quality Report", 14, 20);
+    doc.text("Rapport de Sécurité - Dernier Scan", 14, 20);
 
-    // ZAP
     doc.setFontSize(14);
-    doc.text("ZAP Scan Results", 14, 30);
+    doc.text("OWASP ZAP", 14, 30);
     doc.autoTable({
         startY: 35,
-        head: [["Severity", "Count"]],
-        body: [
-            ["High", zap.high],
-            ["Medium", zap.medium],
-            ["Low", zap.low],
-            ["Info", zap.info],
-        ],
-        theme: "striped"
+        head: [["Sévérité", "Nombre"]],
+        body: Object.entries(zapData),
     });
 
-    // Trivy
-    const trivyStartY = doc.previousAutoTable.finalY + 10;
-    doc.text("Trivy Scan Results", 14, trivyStartY);
+    doc.text("Trivy", 14, doc.lastAutoTable.finalY + 10);
     doc.autoTable({
-        startY: trivyStartY + 5,
-        head: [["Severity", "Count"]],
-        body: Object.entries(trivy).map(([s, c]) => [s, c]),
-        theme: "striped"
+        startY: doc.lastAutoTable.finalY + 15,
+        head: [["Sévérité", "Nombre"]],
+        body: Object.entries(trivyData),
     });
 
-    // Sonar
-    const sonarStartY = doc.previousAutoTable.finalY + 10;
-    doc.text("SonarQube Results", 14, sonarStartY);
+    doc.text("SonarQube", 14, doc.lastAutoTable.finalY + 10);
     doc.autoTable({
-        startY: sonarStartY + 5,
-        head: [["Metric", "Value"]],
-        body: [
-            ["Bugs", sonar.bugs],
-            ["Vulnerabilities", sonar.vulnerabilities],
-            ["Code Smells", sonar.codeSmells],
-            ["Coverage", sonar.coverage],
-        ],
-        theme: "striped"
+        startY: doc.lastAutoTable.finalY + 15,
+        head: [["Catégorie", "Nombre"]],
+        body: Object.entries(sonarData),
     });
 
-    doc.save("dashboard-report.pdf");
+    // === Save PDF ===
+    const filename = `rapport-securite-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
 }
 
 
@@ -2198,6 +2174,7 @@ function processTrivyData(vulnerabilities) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 title: {
@@ -2439,8 +2416,8 @@ function renderVulnerabilityCharts(scan, alerts = []) {
                     label: 'Types de vulnérabilités (Top 10)',
                     data: typeData,
                     backgroundColor: '#4A4AFF',
-                    radius: '50%',
-                    cutout: '70%'
+                    radius: '100%',    // Reduced from default (100%) to 50% to make it smaller
+                    cutout: '0%' 
                 }]
             },
             options: {
@@ -2519,7 +2496,9 @@ function renderSonarCharts(scan) {
             datasets: [{
                 data: [blocker, critical, major, minor, info],
                 backgroundColor: ['#F75D83','#FFE275', '#50D1E6',  '#4A4AFF', '#999'],
-                radius: '50%'
+                radius: '50%',
+                radius: '100%',    // Reduced from default (100%) to 50% to make it smaller
+                cutout: '0%' 
             }]
         },
         options: {
