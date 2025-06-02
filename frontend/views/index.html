@@ -51,6 +51,11 @@
                     </button>
                 </div>
             </div>
+            <!-- PDF Loading Alert -->
+            <div id="pdf-alert" style="display: none; padding: 10px; background: #2196f3; color: white; text-align: center;">
+            📄 Génération du rapport PDF en cours... Veuillez patienter.
+            </div>
+
 
             <div class="row">
                 <div class="col-3">
@@ -337,11 +342,6 @@
                 <div class="card-header">
                     <div class="d-flex justify-between align-center">
                         <span>Problèmes détectés</span>
-                        <div>
-                            <button id="export-sonar-PDF" class="btn btn-sm btn-primary">
-                                <i class="fas fa-download"></i> Exporter PDF
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -482,11 +482,6 @@
                 <div class="card-header">
                     <div class="d-flex justify-between align-center">
                         <span>Vulnérabilités détectées</span>
-                        <div>
-                            <button id="export-zap-PDF" class="btn btn-sm btn-primary">
-                                <i class="fas fa-download"></i> Exporter PDF
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div class="card-body">

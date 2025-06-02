@@ -62,6 +62,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialiser les contrôles globaux
     initGlobalControls();
+    document.getElementById('download-report').addEventListener('click', async () => {
+    const alertBox = document.getElementById('pdf-alert');
+    const btn = document.getElementById('download-report');
+
+    btn.disabled = true;
+    alertBox.style.display = 'block';
+
+    try {
+        await downloadDashboardReport();  // <== This is your full PDF export function
+    } catch (e) {
+        alertBox.textContent = "❌ Une erreur est survenue lors de la génération du PDF.";
+        console.error("Erreur PDF :", e);
+    }
+
+    alertBox.style.display = 'none';
+    btn.disabled = false;
+    });
 });
 
 /**
@@ -998,7 +1015,7 @@ async function fetchVulnerabilities(toolName, days = 30) {
     let text = '';
     let allVulnerabilities = [];
     let offset = 0;
-    const limit = 1000;
+    const limit = 5000;
 
     try {
         while (true) {
@@ -1883,36 +1900,6 @@ function showScanVulnerabilities(scanId) {
 }
 
 /**
- * Exporte le rapport d'un scan
- */
-function exportScanReport(scanId) {
-    fetch(`${API_BASE_URL}/scans/${scanId}/export`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Échec de l\'exportation');
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            // Créer un lien pour le téléchargement
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `rapport-scan-${scanId}.json`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
-            showNotification('Rapport exporté avec succès', 'success');
-        })
-        .catch(error => {
-            console.error('Erreur lors de l\'exportation du rapport:', error);
-            showNotification('Erreur lors de l\'exportation du rapport', 'error');
-        });
-}
-
-/**
  * Affichage d'une notification
  */
 function showNotification(message, type = 'info') {
@@ -1953,7 +1940,7 @@ function showNotification(message, type = 'info') {
 
 async function fetchAllVulnerabilities(toolName) {
     const all = [];
-    const limit = 1000;
+    const limit = 5000;
     let offset = 0;
 
     while (true) {
@@ -2733,112 +2720,14 @@ function showAlertDetails(alert) {
 }
 
 /**
- * Filtrage de la table des vulnérabilités ZAP
- */
-function filterVulnerabilityTable(alerts) {
-    const severityFilter = document.getElementById('zap-severity-filter');
-    const statusFilter = document.getElementById('zap-status-filter');
-    
-    if (!severityFilter || !statusFilter) {
-        console.warn("Filtres de sévérité ou de statut non trouvés");
-        return;
-    }
-
-    const selectedSeverity = severityFilter.value;
-    const selectedStatus = statusFilter.value;
-
-    const filteredAlerts = alerts.filter(alert => {
-        const severityMatch = selectedSeverity === 'all' || (
-            (selectedSeverity === 'critical' && alert.riskcode === '3') ||
-            (selectedSeverity === 'high' && alert.riskcode === '2') ||
-            (selectedSeverity === 'medium' && alert.riskcode === '1') ||
-            (selectedSeverity === 'low' && alert.riskcode === '0')
-        );
-        const statusMatch = selectedStatus === 'all' || alert.status === selectedStatus;
-        return severityMatch && statusMatch;
-    });
-
-    populateVulnerabilityTable(filteredAlerts);
-}
-
-/**
- * Exportation des données ZAP au format CSV
- */
-function exportToCSV(alerts) {
-    if (!alerts || alerts.length === 0) {
-        showNotification('Aucune donnée à exporter', 'warning');
-        return;
-    }
-
-    const headers = ['ID', 'Nom', 'Sévérité', 'Emplacement', 'Catégorie', 'Statut', 'Description', 'Solution', 'CWE ID', 'WASC ID'];
-    const rows = alerts.map(alert => [
-        alert.pluginid || 'N/A',
-        `"${alert.name.replace(/"/g, '""')}"`,
-        formatSeverity(
-            alert.riskcode === '3' ? 'critical' : 
-            alert.riskcode === '2' ? 'high' : 
-            alert.riskcode === '1' ? 'medium' : 'low'
-        ),
-        `"${alert.location || 'N/A'}"`,
-        `"${alert.category || 'N/A'}"`,
-        formatStatus(alert.status),
-        `"${alert.desc ? alert.desc.replace(/"/g, '""') : 'N/A'}"`,
-        `"${alert.solution ? alert.solution.replace(/"/g, '""') : 'N/A'}"`,
-        alert.cweid || 'N/A',
-        alert.wascid || 'N/A'
-    ]);
-
-    const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `zap-vulnerabilities-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showNotification('Données exportées avec succès', 'success');
-}
-
-/**
- * Initialisation de la page des paramètres
- */
-function initSettingsPage() {
-    // Charger les paramètres actuels
-    const themeToggle = document.getElementById('theme-toggle-checkbox');
-    if (themeToggle) {
-        themeToggle.checked = darkMode;
-        themeToggle.addEventListener('change', function() {
-            darkMode = this.checked;
-            localStorage.setItem('darkMode', darkMode ? 'true' : 'false');
-            updateTheme();
-        });
-    }
-
-    // Gestion des paramètres de notification
-    const notificationSettings = document.getElementById('notification-settings');
-    if (notificationSettings) {
-        notificationSettings.addEventListener('change', function() {
-            // Enregistrer les préférences de notification
-            localStorage.setItem('notificationSettings', this.value);
-            showNotification('Paramètres de notification mis à jour', 'success');
-        });
-    }
-}
-
-/**
  * Gestion des erreurs globales
  */
 window.onerror = function(message, source, lineno, colno, error) {
     console.error(`Erreur globale: ${message} à ${source}:${lineno}:${colno}`, error);
     showNotification('Une erreur inattendue s\'est produite. Veuillez consulter la console pour plus de détails.', 'error');
 };
+
+
 
 /**
  * Gestion des erreurs de promesse non gérées

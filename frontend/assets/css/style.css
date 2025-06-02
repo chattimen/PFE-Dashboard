@@ -181,6 +181,36 @@ body.dark-mode input {
     margin-right: 10px; /* Optional: Adds spacing if multiple buttons exist */
 }
 
+#download-report {
+  background-color: #4A4AFF;
+  color: #ffffff;
+  border: none;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#download-report:hover {
+  background-color: #3a3ae6;
+}
+
+#download-report:active {
+  transform: scale(0.97);
+}
+
+#download-report:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+
 /* Stats cards */
 .stat-card {
     text-align: center;
@@ -399,9 +429,17 @@ body.dark-mode .pagination span {
     font-weight: 500;
 }
 
-.table tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+/* Default row color */
+.table tbody tr {
+    background-color: #ffffff;
+    transition: background-color 0.2s ease;
 }
+
+/* Hover style: stronger highlight */
+.table tbody tr:hover {
+    background-color: rgba(74, 74, 255, 0.1); /* Light blue background */
+}
+
 
 /* Badges et statuts */
 .table .badge {

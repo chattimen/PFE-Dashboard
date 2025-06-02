@@ -68,15 +68,6 @@ CREATE TABLE tool_configs (
     last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table des utilisateurs (optionnelle pour l'authentification)
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    is_admin BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Ajout des index pour améliorer les performances
 CREATE INDEX idx_vulnerabilities_scan_id ON vulnerabilities(scan_id);
