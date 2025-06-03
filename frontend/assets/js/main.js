@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         await downloadDashboardReport();  // <== This is your full PDF export function
     } catch (e) {
-        alertBox.textContent = "❌ Une erreur est survenue lors de la génération du PDF.";
+        alertBox.textContent = " Une erreur est survenue lors de la génération du PDF.";
         console.error("Erreur PDF :", e);
     }
 
@@ -89,11 +89,13 @@ function setupTabNavigation() {
     
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Récupérer l'identifiant de la page cible
             const targetPage = this.getAttribute('data-page');
+
+            // Only prevent default if it's an internal page switch
             if (!targetPage) return;
+
+            e.preventDefault();
+
             
             // Masquer toutes les pages
             document.querySelectorAll('.page-content').forEach(page => {
@@ -2727,6 +2729,22 @@ window.onerror = function(message, source, lineno, colno, error) {
     showNotification('Une erreur inattendue s\'est produite. Veuillez consulter la console pour plus de détails.', 'error');
 };
 
+
+window.addEventListener("DOMContentLoaded", () => {
+  const hash = window.location.hash;
+  if (hash.startsWith("#dashboard")) {
+    document.querySelectorAll(".page-content").forEach(pc => pc.style.display = "none");
+    document.getElementById("dashboard-page").style.display = "block";
+
+    // Optional: parse repo name
+    const match = hash.match(/repo=([a-zA-Z0-9\-_]+)/);
+    if (match) {
+      const repo = decodeURIComponent(match[1]);
+      console.log("Scanning repo:", repo);
+      // You could trigger a scan, highlight the repo, or filter data
+    }
+  }
+});
 
 
 /**

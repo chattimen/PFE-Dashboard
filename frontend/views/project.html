@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Liste des Projets</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      padding: 40px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    .btn {
+      background-color: #007bff;
+      color: white;
+      padding: 6px 12px;
+      text-decoration: none;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Liste des Projets</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Organisation</th>
+        <th>Nom du dépôt</th>
+        <th>Équipe</th>
+        <th>Langage</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>OpenAI</td>
+        <td>security-dashboard</td>
+        <td>SRE</td>
+        <td>Python</td>
+        <td><a class="btn" href="index.html">Scanner</a></td>
+      </tr>
+      <tr>
+        <td>ExampleOrg</td>
+        <td>frontend-app</td>
+        <td>UI Team</td>
+        <td>React</td>
+        <td><a class="btn" href="index.html">Scanner</a></td>
+      </tr>
+      <tr>
+        <td>ExampleOrg</td>
+        <td>api-service</td>
+        <td>Backend</td>
+        <td>Node.js</td>
+        <td><a class="btn" href="index.html">Scanner</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+</body>
+</html>

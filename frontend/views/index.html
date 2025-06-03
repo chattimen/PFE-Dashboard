@@ -18,6 +18,7 @@
             <img src="../assets/img/logo.png" alt="Logo" style="height: 60px;">
         </div>
         <ul class="navbar-nav">
+            <li><a href="project.html" class="btn-back" title="Retour aux projets">&lt;</a></li>
             <li><a href="#" class="active" data-page="dashboard">Dashboard</a></li>
             <li><a href="#" data-page="trivy">Trivy</a></li>
             <li><a href="#" data-page="sonarqube">SonarQube</a></li>
@@ -33,6 +34,11 @@
             <div class="page-header">
                 <h2 class="page-title">Tableau de bord de sécurité</h2>
                 <div class="filters-container">
+                    <div class="actions">
+                        <button id="download-report" class="report-link">
+                            <i class="fas fa-file-download"></i> Télécharger le rapport
+                        </button>
+                     </div>
                     <div class="filter-group">
                         <label for="period-selector">Période:</label>
                         <select id="period-selector" class="form-control">
@@ -41,12 +47,9 @@
                             <option value="30" >30 jours</option>
                         </select>
                     </div>
+                    
                 </div>
-                <div class="actions">
-                    <button id="download-report" class="report-link">
-                        <i class="fas fa-file-download"></i> Télécharger le rapport
-                    </button>
-                </div>
+    
             </div>
             <!-- PDF Loading Alert -->
             <div id="pdf-alert" style="display: none; padding: 10px; background: #2196f3; color: white; text-align: center;">
@@ -180,13 +183,13 @@
                         <div class="card-header">Vue d'overview</div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="col-6">
-                                    <div class="stat-card">
-                                        <div class="stat-icon"><i class="fas fa-magnifying-glass"></i></div>
-                                        <div class="stat-value" id="trivy-scan-count">0</div>
-                                        <div class="stat-label">Scans effectués</div>
+                                    <div class="col-6" id="trivy-scan-stats">
+                                        <div class="stat-card" >
+                                            <div class="stat-icon"><i class="fas fa-magnifying-glass"></i></div>
+                                            <div class="stat-value" id="trivy-scan-count">0</div>
+                                            <div class="stat-label">Scans effectués</div>
+                                        </div>
                                     </div>
-                                </div>
                                 <div class="col-6">
                                     <div class="stat-card">
                                         <div class="stat-icon"><i class="fas fa-bug"></i></div>
@@ -633,7 +636,6 @@
                                     <th>Succès</th>
                                     <th>Échecs</th>
                                     <th>Ignorés</th>
-                                    <th>Durée</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
