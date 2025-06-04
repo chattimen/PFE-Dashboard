@@ -1,0 +1,120 @@
+/* Base layout */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 40px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Headers */
+h1 {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 30px;
+}
+
+/* Cards */
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    padding: 20px;
+    margin: 15px;
+    flex: 1;
+    min-width: 220px;
+}
+
+.card h2 {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.card .value {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+/* Color styling for severity levels */
+.card:nth-child(1) .value { color: #e74c3c; }  /* Critical - red */
+.card:nth-child(2) .value { color: #f39c12; }  /* High - yellow */
+.card:nth-child(3) .value { color: #00bcd4; }  /* Medium - cyan */
+.card:nth-child(4) .value { color: #3b5be6; }  /* Low - blue */
+
+/* Rows */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Table */
+.table-container {
+    margin-top: 30px;
+    overflow-x: auto;
+}
+
+.table-project-list {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.table-project-list th,
+.table-project-list td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.table-project-list th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+    color: #333;
+}
+
+.table-project-list tr:hover {
+    background-color: #f9f9f9;
+}
+
+.table-project-list td:last-child {
+    text-align: center;
+}
+
+.table-project-list td:last-child::before {
+    content: "🔍 Scanner";
+    background-color: #3b5be6;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.table-project-list td:last-child:hover::before {
+    background-color: #324bc6;
+}
+
+/* Chart placeholders */
+.chart-container {
+    margin-top: 10px;
+}
+.table td {
+    font-weight: 500;
+}
+
+.table th {
+    font-weight: 600;
+    color: #222;
+}

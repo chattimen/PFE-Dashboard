@@ -18,8 +18,8 @@
             <img src="../assets/img/logo.png" alt="Logo" style="height: 60px;">
         </div>
         <ul class="navbar-nav">
-            <li><a href="project.html" class="btn-back" title="Retour aux projets">&lt;</a></li>
-            <li><a href="#" class="active" data-page="dashboard">Dashboard</a></li>
+            <li><a href="project.html" class="btn-back" title="Retour aux projets"><i style="font-size:24px" class="fa">&#xf060;</i>&nbsp; Projets</a></li>
+            <li><a href="#" class="active" data-page="dashboard">Tableau De Bord</a></li>
             <li><a href="#" data-page="trivy">Trivy</a></li>
             <li><a href="#" data-page="sonarqube">SonarQube</a></li>
             <li><a href="#" data-page="zap">OWASP ZAP</a></li>
@@ -184,14 +184,14 @@
                         <div class="card-body">
                             <div class="row">
                                     <div class="col-6" id="trivy-scan-stats">
-                                        <div class="stat-card" >
+                                        <div class="stat-card medium" >
                                             <div class="stat-icon"><i class="fas fa-magnifying-glass"></i></div>
                                             <div class="stat-value" id="trivy-scan-count">0</div>
                                             <div class="stat-label">Scans effectués</div>
                                         </div>
                                     </div>
                                 <div class="col-6">
-                                    <div class="stat-card">
+                                    <div class="stat-card low">
                                         <div class="stat-icon"><i class="fas fa-bug"></i></div>
                                         <div class="stat-value" id="trivy-vulnerability-count">0</div>
                                         <div class="stat-label">Vulnérabilités actives</div>
@@ -279,7 +279,7 @@
             <div class="row">
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card">
+                        <div class="stat-card critical">
                             <div class="stat-icon"><i class="fas fa-bug"></i></div>
                             <div class="stat-value" id="sonar-bugs-count">0</div>
                             <div class="stat-label">Bugs</div>
@@ -288,7 +288,7 @@
                 </div>
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card">
+                        <div class="stat-card high">
                             <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
                             <div class="stat-value" id="sonar-vulnerabilities-count">0</div>
                             <div class="stat-label">Vulnérabilités</div>
@@ -297,7 +297,7 @@
                 </div>
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card">
+                        <div class="stat-card medium">
                             <div class="stat-icon"><i class="fas fa-code"></i></div>
                             <div class="stat-value" id="sonar-code-smells-count">0</div>
                             <div class="stat-label">Code Smells</div>
@@ -306,7 +306,7 @@
                 </div>
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card">
+                        <div class="stat-card low">
                             <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
                             <div class="stat-value" id="sonar-coverage">0%</div>
                             <div class="stat-label">Couverture</div>
@@ -555,7 +555,7 @@
             <div class="row">
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card">
+                        <div class="stat-card critical">
                             <div class="stat-icon"><i class="fas fa-play"></i></div>
                             <div class="stat-value" id="selenium-tests-count">0</div>
                             <div class="stat-label">Tests exécutés</div>
@@ -564,7 +564,7 @@
                 </div>
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card success">
+                        <div class="stat-card high">
                             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
                             <div class="stat-value" id="selenium-success-rate">0%</div>
                             <div class="stat-label">Taux de succès</div>
@@ -573,7 +573,7 @@
                 </div>
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card high">
+                        <div class="stat-card medium">
                             <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
                             <div class="stat-value" id="selenium-failed-count">0</div>
                             <div class="stat-label">Tests échoués</div>
@@ -582,7 +582,7 @@
                 </div>
                 <div class="col-3">
                     <div class="card">
-                        <div class="stat-card">
+                        <div class="stat-card low">
                             <div class="stat-icon"><i class="fas fa-clock"></i></div>
                             <div class="stat-value" id="selenium-avg-duration">0s</div>
                             <div class="stat-label">Durée moyenne</div>
@@ -602,6 +602,7 @@
                             <thead>
                                 <tr>
                                     <th>Nom du test</th>
+                                    <th>type</th>
                                     <th>Suite</th>
                                     <th>Date</th>
                                     <th>Durée</th>
@@ -664,7 +665,7 @@
         </div>
     </div>
     <div id="notification-container"></div>
-    <script src="./assets/js/api.js"></script>
+    <script src="../assets/js/api.js"></script>
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/charts.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

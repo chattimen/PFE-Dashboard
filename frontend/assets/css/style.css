@@ -204,6 +204,22 @@ body.dark-mode input {
   align-items: center;
   gap: 8px;
 }
+/* Style for scan detail view */
+.scan-details {
+  padding: 16px;
+  font-size: 16px;
+  line-height: 1.6;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+}
+
+.scan-details div,
+.scan-details p {
+  margin-bottom: 12px;
+}
+
 
 #download-report:hover {
   background-color: #3a3ae6;
@@ -304,11 +320,11 @@ body.dark-mode input {
 .navbar-nav a {
     color: var(--light-text);
     text-decoration: none;
-    padding: 12px 20px; /* Increased padding for bigger buttons */
-    font-size: 16px; /* Increased font size */
+    padding: 12px 20px;
+    font-size: 16px;
     border-radius: var(--border-radius);
     transition: background-color 0.3s;
-    height: 48px; /* Added height to ensure uniform size */
+    height: 48px;
     display: flex;
     align-items: center;
 }
@@ -633,7 +649,7 @@ body.dark-mode select.form-control {
     background-color: var(--light-card);
     margin: 10% auto;
     width: 80%;
-    max-width: 700px;
+    max-width: 900px;
     border-radius: var(--border-radius);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     position: relative;
@@ -950,4 +966,13 @@ body.dark-mode .notification {
 
 .report-link i {
     font-size: 14px;
+}
+
+.table td {
+    font-weight: 500;
+}
+
+.table th {
+    font-weight: 700;
+    color: #222;
 }
